@@ -14,7 +14,7 @@ public struct PageBuilder {
     }
 }
 
-infix operator >>>: AssignmentPrecedence
+infix operator >>>: AdditionPrecedence
 
 public func >>>(_ lhs: Duration, _ rhs: any Element) -> (Duration, any Element) {
     return (lhs, rhs)
@@ -24,16 +24,28 @@ public func >>>(_ lhs: Double, _ rhs: any Element) -> (Duration, any Element) {
     return (Duration.nanoseconds(Int(lhs * 1e9)), rhs)
 }
 
-public func >>>(_ lhs: any Element, _ rhs: Double) -> any Element {
-    var copy = lhs
-    copy.lifetime = .time(duration: Duration.nanoseconds(Int(rhs * 1e9)))
-    return copy
+public func >>>(_ lhs: (Duration, any Element), _ rhs: Double) -> (Duration, any Element) {
+    var copy = lhs.1
+    copy.lifetime = .time(duration: Duration.nanoseconds(Int(rhs * 1e9)) - lhs.0)
+    return (lhs.0, copy)
 }
 
-public func >>>(_ lhs: inout any Element, _ rhs: Duration) -> any Element {
-    var copy = lhs
+public func >>>(_ lhs: (Duration, any Element), _ rhs: Duration) -> (Duration, any Element) {
+    var copy = lhs.1
+    copy.lifetime = .time(duration: rhs - lhs.0)
+    return (lhs.0, copy)
+}
+
+public func +(_ lhs: (Duration, any Element), _ rhs: Double) -> (Duration, any Element) {
+    var copy = lhs.1
+    copy.lifetime = .time(duration: .seconds(rhs))
+    return (lhs.0, copy)
+}
+
+public func +(_ lhs: (Duration, any Element), _ rhs: Duration) -> (Duration, any Element) {
+    var copy = lhs.1
     copy.lifetime = .time(duration: rhs)
-    return copy
+    return (lhs.0, copy)
 }
 
 @resultBuilder

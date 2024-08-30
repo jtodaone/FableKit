@@ -104,12 +104,20 @@ public final class FableController: @unchecked Sendable {
                     headEntity.setPosition(self.currentHeadPosition, relativeTo: nil)
                     headEntity.setOrientation(simd_quatf(self.currentHeadRotation), relativeTo: nil)
                     entityElement.entity!.move(to: Transform(translation: entityElement.initialPosition.position), relativeTo: headEntity)
-                    entityElement.entity!.look(at: self.currentHeadPosition, from: entityElement.initialPosition.position + self.currentHeadPosition, relativeTo: nil)
-                    entityElement.entity?.setOrientation(simd_quatf(angle: Float.pi, axis: SIMD3<Float>(0, 1, 0)), relativeTo: entityElement.entity!)
-                    
                 } else {
                     entityElement.entity!.setPosition(entityElement.initialPosition.position, relativeTo: nil)
                 }
+                
+                if entityElement.initialRotation.lookAtHead {
+                    entityElement.entity!.look(at: self.currentHeadPosition, from: entityElement.initialPosition.position + self.currentHeadPosition, relativeTo: nil)
+                    entityElement.entity?.setOrientation(simd_quatf(angle: Float.pi, axis: SIMD3<Float>(0, 1, 0)), relativeTo: entityElement.entity!)
+                    entityElement.entity!.setOrientation(simd_quatf(Rotation3D(eulerAngles: entityElement.initialRotation.0)), relativeTo: entityElement.entity!)
+                } else {
+                    print(entityElement.initialRotation.0)
+                    entityElement.entity!.setOrientation(simd_quatf(Rotation3D(eulerAngles: entityElement.initialRotation.0)), relativeTo: entityElement.entity!)
+                }
+                
+                entityElement.entity!.setScale(entityElement.initialScale, relativeTo: entityElement.entity!)
                 
                 if case .time(let duration, _) = entityElement.lifetime {
                     Task {

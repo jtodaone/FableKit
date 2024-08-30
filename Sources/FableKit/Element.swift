@@ -161,7 +161,7 @@ public struct EntityElement: Element, Loadable {
     public let initialRotation: (EulerAngles, lookAtHead: Bool)
     public let initialScale: SIMD3<Float>
     
-    public init(entity: Entity, description: String = "<Entity>", initialPosition: (SIMD3<Float>, relativeToHead: Bool) = (.zero, false), initialRotation: (EulerAngles, lookAtHead: Bool) = (EulerAngles(), true), lifetime: Lifetime = .element(count: 1), initialScale: SIMD3<Float> = .one, isInteractable: Bool = false, onRender: @escaping RenderEventHandler = { _ in }, onDisappear: @escaping RenderEventHandler = { _ in }) {
+    public init(entity: Entity, description: String = "<Entity>", initialPosition: (SIMD3<Float>, relativeToHead: Bool) = (.zero, false), initialRotation: (EulerAngles, lookAtHead: Bool) = (EulerAngles(), false), lifetime: Lifetime = .element(count: 1), initialScale: SIMD3<Float> = .one, isInteractable: Bool = false, onRender: @escaping RenderEventHandler = { _ in }, onDisappear: @escaping RenderEventHandler = { _ in }) {
         self.entity = entity
         self.description = description
         self.id = UUID()
@@ -179,7 +179,7 @@ public struct EntityElement: Element, Loadable {
         }
     }
     
-    public init(named resourceName: String, in bundle: Bundle? = nil, description: String = "<Entity>", initialPosition: (SIMD3<Float>, relativeToHead: Bool) = (.zero, false), initialRotation: (EulerAngles, lookAtHead: Bool) = (EulerAngles(), true), initialScale: SIMD3<Float> = .one, isInteractable: Bool = false, lifetime: Lifetime = .element(count: 1), onRender: @escaping RenderEventHandler = { _ in }, onDisappear: @escaping RenderEventHandler = { _ in }) {
+    public init(named resourceName: String, in bundle: Bundle? = nil, description: String = "<Entity>", initialPosition: (SIMD3<Float>, relativeToHead: Bool) = (.zero, false), initialRotation: (EulerAngles, lookAtHead: Bool) = (EulerAngles(), false), initialScale: SIMD3<Float> = .one, isInteractable: Bool = false, lifetime: Lifetime = .element(count: 1), onRender: @escaping RenderEventHandler = { _ in }, onDisappear: @escaping RenderEventHandler = { _ in }) {
         self.resourceName = resourceName
         self.bundle = bundle
         self.description = description

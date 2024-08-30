@@ -145,7 +145,7 @@ public struct Video: GroupElement, Loadable {
         avPlayer.removeAllItems()
         avPlayer.insert(self.avPlayerItem, after: nil)
         
-        let entityElement = EntityElement(entity: videoEntity, description: "<Video>", initialPosition: initialPosition) { context in
+        let entityElement = EntityElement(entity: videoEntity, description: "<Video>", initialPosition: initialPosition, initialRotation: (.init(), lookAtHead: true)) { context in
             context.cancelBag.append(
                 NotificationCenter.default.publisher(for: AVPlayerItem.didPlayToEndTimeNotification, object: playerItem).sink { _ in
                     print("video ended")

@@ -130,7 +130,6 @@ public struct Video: GroupElement, Loadable {
         let player = AVQueuePlayer()
         
         self.avPlayer = player
-//        self.context = previous.context
         
         let playerItem = previous.avPlayerItem.copy() as! AVPlayerItem
         self.avPlayerItem = playerItem
@@ -166,7 +165,15 @@ public struct Video: GroupElement, Loadable {
             
             context.addElement(entityElement)
             
-            for event in zip(newElements, times) {
+            let events = zip(newElements, times)
+            let initialEvents = events.filter { $0.1.cmTime.value <= 1}
+            let observedEvents = events.filter { $0.1.cmTime.value > 1 }
+            
+            for event in initialEvents {
+                context.addElement(event.0)
+            }
+            
+            for event in observedEvents {
                 player.addBoundaryTimeObserver(forTimes: [NSValue(time: event.1.cmTime)], queue: nil) {
                     Task { @MainActor in
                         context.addElement(event.0)

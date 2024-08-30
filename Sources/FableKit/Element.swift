@@ -30,12 +30,18 @@ public struct ConcurrentElement: GroupElement {
     public var id = UUID()
     public var contentData: ContentData = .concurrent
     
+    private var _lifetime: Lifetime? = nil
+    
     nonisolated public var lifetime: Lifetime {
         get {
+            if let _lifetime { return _lifetime }
+            
             let isEverythingOver = self.elements.allSatisfy { $0.lifetime.isOver }
             return .indefinite(isOver: isEverythingOver)
         }
-        set {}
+        set {
+            _lifetime = newValue
+        }
     }
     
     public var elements: [any Element]
@@ -48,6 +54,7 @@ public struct ConcurrentElement: GroupElement {
         self.elements = newElements
         self.onRender = previous.onRender
         self.onDisappear = previous.onDisappear
+        self._lifetime = previous._lifetime
     }
     
     func withNewElements(_ newElements: [any Element]) -> Self {

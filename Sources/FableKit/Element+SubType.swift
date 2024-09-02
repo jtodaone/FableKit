@@ -69,7 +69,7 @@ public struct Video: GroupElement, Loadable {
     
     public let times: [Duration]
     public var lifetime: Lifetime = .indefinite(isOver: false)
-    public let initialPosition: (SIMD3<Float>, relativeToHead: Bool)
+    public let initialPosition: Position
     
     internal var videoEndSink: (any Cancellable)? = nil
     
@@ -85,7 +85,7 @@ public struct Video: GroupElement, Loadable {
         }.joined(separator: "\n")
     }
     
-    public init(_ url: URL, initialPosition: (SIMD3<Float>, relativeToHead: Bool) = (.zero, false), @TimelineBuilder events: () -> ([Duration], [any Element])) {
+    public init(_ url: URL, initialPosition: Position = (.zero, false), @TimelineBuilder events: () -> ([Duration], [any Element])) {
         let videoPlayerItem = AVPlayerItem(url: url)
         self.avPlayerItem = videoPlayerItem
         self.initialPosition = initialPosition
@@ -191,7 +191,7 @@ public struct Video: GroupElement, Loadable {
         self.isLoaded = true
     }
     
-    public init(_ resource: String, withExtension fileExtension: String = "mp4", in bundle: Bundle? = nil, initialPosition: (SIMD3<Float>, relativeToHead: Bool) = (.zero, false), @TimelineBuilder events: () -> ([Duration], [any Element])) {
+    public init(_ resource: String, withExtension fileExtension: String = "mp4", in bundle: Bundle? = nil, initialPosition: Position = (.zero, false), @TimelineBuilder events: () -> ([Duration], [any Element])) {
         let bundle = bundle ?? Fable.defaultBundle
         guard let url = bundle.url(forResource: resource, withExtension: fileExtension) else {
             fatalError("File is not found in the bundle \"\(bundle.bundlePath)\"")

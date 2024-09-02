@@ -31,6 +31,25 @@ public final class FableController: @unchecked Sendable {
     
     var viewElements: [ViewElement] { activeElements.compactMap { $0 as? ViewElement } }
     
+    public var overlayViews: some View {
+        ForEach(viewElements.filter { $0.isOverlay }) { view in
+            view.body
+        }.allowsHitTesting(false)
+    }
+    
+    public var floatingViews: [ViewElement] {
+        viewElements.filter { !$0.isOverlay }
+    }
+    
+    public var floatingViewAttachments: some AttachmentContent {
+        ForEach(floatingViews) { element in
+            Attachment(id: element.id) {
+                element.body
+            }
+        }
+    }
+    public var floatingViewAttachmentsToAdd: [ViewElement] = []
+    
     var timedQueue: [UUID : [Task<Void, Never>]] = [:]
     
     let clock = ContinuousClock()
@@ -64,10 +83,6 @@ public final class FableController: @unchecked Sendable {
         guard let _ = try? session.setCategory(.playback, mode: .moviePlayback) else { return nil }
         
         self.skybox = createEmptySkybox()
-        
-//        Task {
-//            
-//        }
     }
     
     @MainActor
@@ -96,6 +111,29 @@ public final class FableController: @unchecked Sendable {
             
             self.isReady = true
         } update: { content, attachments in
+            for floatingView in self.floatingViewAttachmentsToAdd {
+                if let attachment = attachments.entity(for: floatingView.id) {
+                    if floatingView.initialPosition.relativeToHead {
+                        let headEntity = Entity()
+                        headEntity.setPosition(self.currentHeadPosition, relativeTo: nil)
+                        headEntity.setOrientation(simd_quatf(self.currentHeadRotation), relativeTo: nil)
+                        attachment.move(to: Transform(translation: floatingView.initialPosition.position), relativeTo: headEntity)
+                    } else {
+                        attachment.setPosition(floatingView.initialPosition.position, relativeTo: nil)
+                    }
+                    
+                    if floatingView.initialRotation.lookAtHead {
+                        attachment.look(at: self.currentHeadPosition, from: floatingView.initialPosition.position + self.currentHeadPosition, relativeTo: nil)
+                        attachment.setOrientation(simd_quatf(angle: Float.pi, axis: SIMD3<Float>(0, 1, 0)), relativeTo: attachment)
+                        attachment.setOrientation(simd_quatf(Rotation3D(eulerAngles: floatingView.initialRotation.0)), relativeTo: attachment)
+                    } else {
+                        attachment.setOrientation(simd_quatf(Rotation3D(eulerAngles: floatingView.initialRotation.0)), relativeTo: attachment)
+                    }
+                    
+                    content.add(attachment)
+                }
+            }
+            
             for entityElement in self.entitiesToAdd {
                 guard entityElement.entity != nil else { continue }
                 
@@ -113,7 +151,6 @@ public final class FableController: @unchecked Sendable {
                     entityElement.entity?.setOrientation(simd_quatf(angle: Float.pi, axis: SIMD3<Float>(0, 1, 0)), relativeTo: entityElement.entity!)
                     entityElement.entity!.setOrientation(simd_quatf(Rotation3D(eulerAngles: entityElement.initialRotation.0)), relativeTo: entityElement.entity!)
                 } else {
-                    print(entityElement.initialRotation.0)
                     entityElement.entity!.setOrientation(simd_quatf(Rotation3D(eulerAngles: entityElement.initialRotation.0)), relativeTo: entityElement.entity!)
                 }
                 
@@ -154,10 +191,14 @@ public final class FableController: @unchecked Sendable {
             }
         } attachments: {
             Attachment(id: "overlay") {
-                self.attachment
+                self.overlayViews
             }
+            self.floatingViewAttachments
         }
         .installGestures()
+//        .gesture(SpatialTapGesture().targetedToEntity(skybox).onEnded({ _ in
+//            self.next()
+//        }))
         .preferredSurroundingsEffect(SurroundingsEffect.dim(intensity: dimming))
         .task {
             try! await self.session.run([self.worldInfo])
@@ -200,12 +241,6 @@ public final class FableController: @unchecked Sendable {
         }
     }
     
-    public var attachment: some View {
-        ForEach(viewElements) { view in
-            view.body
-        }.allowsHitTesting(false)
-    }
-    
     @MainActor
     func addElement(_ element: any Element, initialPosition: SIMD3<Float> = .zero) {
         if let entityElement = element as? EntityElement {
@@ -220,6 +255,16 @@ public final class FableController: @unchecked Sendable {
             if case .time(let duration, _) = concurrentElement.lifetime {
                 addEventToQueue(after: duration, taskID: concurrentElement.id) { context in
                     context.removeElement(concurrentElement)
+                }
+            }
+        } else if let viewElement = element as? ViewElement, !viewElement.isOverlay {
+            activeElements.append(viewElement)
+            floatingViewAttachmentsToAdd.append(viewElement)
+            if let onRender = element.onRender { onRender(self) }
+            
+            if case .time(let duration, _) = element.lifetime {
+                addEventToQueue(after: duration, taskID: element.id) { context in
+                    context.removeElement(element)
                 }
             }
         } else {

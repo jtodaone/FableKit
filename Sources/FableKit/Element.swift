@@ -138,12 +138,32 @@ public struct ViewElement: Element, @unchecked Sendable {
     
     public var lifetime: Lifetime = .element(count: 1)
     
-    public init(description: String = "<View>", id: UUID = UUID(), type: ContentData = .other, lifetime: Lifetime = .element(count: 1), @ViewBuilder body: () -> some View) {
+    public let isOverlay: Bool
+    
+    public let initialPosition: Position
+    public let initialRotation: Rotation
+    
+    public init(description: String = "<View>", id: UUID = UUID(), type: ContentData = .other, lifetime: Lifetime = .element(count: 1), isOverlay: Bool = true, initialPosition: Position = (.zero, false), initialRotation: Rotation = (.init(), false), @ViewBuilder body: () -> some View) {
         self.description = description
         self.id = id
         self.contentData = type
+        self.isOverlay = isOverlay
         self.body = AnyView(body())
+        
+        self.initialPosition = initialPosition
+        self.initialRotation = initialRotation
     }
+    
+//    public init(description: String = "<View>", id: UUID = UUID(), type: ContentData = .other, lifetime: Lifetime = .element(count: 1), isOverlay: Bool = true, initialPosition: Position = (.zero, false), initialRotation: Rotation = (.init(), false), @ViewBuilder body: (FableController) -> some View) {
+//        self.description = description
+//        self.id = id
+//        self.contentData = type
+//        self.isOverlay = isOverlay
+//        self.body = AnyView(body())
+//        
+//        self.initialPosition = initialPosition
+//        self.initialRotation = initialRotation
+//    }
 }
 
 @MainActor
@@ -164,11 +184,11 @@ public struct EntityElement: Element, Loadable {
     
     public private(set) var isLoaded = true
     
-    public let initialPosition: (position: SIMD3<Float>, relativeToHead: Bool)
-    public let initialRotation: (EulerAngles, lookAtHead: Bool)
+    public let initialPosition: Position
+    public let initialRotation: Rotation
     public let initialScale: SIMD3<Float>
     
-    public init(entity: Entity, description: String = "<Entity>", initialPosition: (SIMD3<Float>, relativeToHead: Bool) = (.zero, false), initialRotation: (EulerAngles, lookAtHead: Bool) = (EulerAngles(), false), lifetime: Lifetime = .element(count: 1), initialScale: SIMD3<Float> = .one, isInteractable: Bool = false, onRender: @escaping RenderEventHandler = { _ in }, onDisappear: @escaping RenderEventHandler = { _ in }) {
+    public init(entity: Entity, description: String = "<Entity>", initialPosition: Position = (.zero, false), initialRotation: Rotation = (EulerAngles(), false), lifetime: Lifetime = .element(count: 1), initialScale: SIMD3<Float> = .one, isInteractable: Bool = false, onRender: @escaping RenderEventHandler = { _ in }, onDisappear: @escaping RenderEventHandler = { _ in }) {
         self.entity = entity
         self.description = description
         self.id = UUID()
@@ -186,7 +206,7 @@ public struct EntityElement: Element, Loadable {
         }
     }
     
-    public init(named resourceName: String, in bundle: Bundle? = nil, description: String = "<Entity>", initialPosition: (SIMD3<Float>, relativeToHead: Bool) = (.zero, false), initialRotation: (EulerAngles, lookAtHead: Bool) = (EulerAngles(), false), initialScale: SIMD3<Float> = .one, isInteractable: Bool = false, lifetime: Lifetime = .element(count: 1), onRender: @escaping RenderEventHandler = { _ in }, onDisappear: @escaping RenderEventHandler = { _ in }) {
+    public init(named resourceName: String, in bundle: Bundle? = nil, description: String = "<Entity>", initialPosition: Position = (.zero, false), initialRotation: Rotation = (EulerAngles(), false), initialScale: SIMD3<Float> = .one, isInteractable: Bool = false, lifetime: Lifetime = .element(count: 1), onRender: @escaping RenderEventHandler = { _ in }, onDisappear: @escaping RenderEventHandler = { _ in }) {
         self.resourceName = resourceName
         self.bundle = bundle
         self.description = description

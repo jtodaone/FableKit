@@ -46,7 +46,7 @@ public enum ContentData: Sendable {
     case other
 }
 
-public enum Lifetime: Sendable {
+public enum Lifetime: Sendable, Equatable {
     case element(count: Int)
     case time(duration: Duration, expired: Bool = false)
     case instant

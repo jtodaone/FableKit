@@ -7,7 +7,8 @@ import ARKit
 
 @available(macOS, unavailable)
 @Observable
-public final class FableController: @unchecked Sendable {
+public final class FableController: @unchecked Sendable, SignalReceiver {
+    public let id = UUID()
     public var fable: Fable
     
     private var currentPageIndex = 0
@@ -22,7 +23,7 @@ public final class FableController: @unchecked Sendable {
     var activeElements: [any Element] = []
     
     private var entityElements: [EntityElement] { activeElements.compactMap { $0 as? EntityElement } }
-    private var entitiesToAdd: [EntityElement] = []
+    private var entitiesToAdd: [(EntityElement, ignoreLifetime: Bool)] = []
     private var entitiesToRemove: [EntityElement] = []
     
     private var nonEntitiesToRemove: [any Element] {
@@ -79,10 +80,18 @@ public final class FableController: @unchecked Sendable {
     public init?(fable: Fable) {
         self.fable = fable
         
+        SignalDispatch.main.add(subscriber: self)
+        
         let session = AVAudioSession.sharedInstance()
         guard let _ = try? session.setCategory(.playback, mode: .moviePlayback) else { return nil }
         
         self.skybox = createEmptySkybox()
+    }
+    
+    deinit {
+        Task {
+            await SignalDispatch.main.remove(subscriber: self)
+        }
     }
     
     @MainActor
@@ -134,7 +143,8 @@ public final class FableController: @unchecked Sendable {
                 }
             }
             
-            for entityElement in self.entitiesToAdd {
+            for entry in self.entitiesToAdd {
+                let entityElement = entry.0
                 guard entityElement.entity != nil else { continue }
                 
                 if entityElement.initialPosition.relativeToHead {
@@ -156,7 +166,7 @@ public final class FableController: @unchecked Sendable {
                 
                 entityElement.entity!.setScale(entityElement.initialScale, relativeTo: entityElement.entity!)
                 
-                if case .time(let duration, _) = entityElement.lifetime {
+                if case .time(let duration, _) = entityElement.lifetime, !entry.ignoreLifetime {
                     Task {
                         try await Task.sleep(for: duration)
                         self.entitiesToRemove.append(entityElement)
@@ -242,9 +252,9 @@ public final class FableController: @unchecked Sendable {
     }
     
     @MainActor
-    func addElement(_ element: any Element, initialPosition: SIMD3<Float> = .zero) {
+    func addElement(_ element: any Element, initialPosition: SIMD3<Float> = .zero, ignoreLifetime: Bool = false) {
         if let entityElement = element as? EntityElement {
-            entitiesToAdd.append(entityElement)
+            entitiesToAdd.append((entityElement, ignoreLifetime))
         } else if let concurrentElement = element as? ConcurrentElement {
             activeElements.append(concurrentElement)
             if let onRender = concurrentElement.onRender { onRender(self) }
@@ -252,7 +262,7 @@ public final class FableController: @unchecked Sendable {
                 addElement(element)
             }
             
-            if case .time(let duration, _) = concurrentElement.lifetime {
+            if case .time(let duration, _) = concurrentElement.lifetime, !ignoreLifetime {
                 addEventToQueue(after: duration, taskID: concurrentElement.id) { context in
                     context.removeElement(concurrentElement)
                 }
@@ -262,7 +272,7 @@ public final class FableController: @unchecked Sendable {
             floatingViewAttachmentsToAdd.append(viewElement)
             if let onRender = element.onRender { onRender(self) }
             
-            if case .time(let duration, _) = element.lifetime {
+            if case .time(let duration, _) = element.lifetime, !ignoreLifetime {
                 addEventToQueue(after: duration, taskID: element.id) { context in
                     context.removeElement(element)
                 }
@@ -271,7 +281,7 @@ public final class FableController: @unchecked Sendable {
             activeElements.append(element)
             if let onRender = element.onRender { onRender(self) }
             
-            if case .time(let duration, _) = element.lifetime {
+            if case .time(let duration, _) = element.lifetime, !ignoreLifetime {
                 addEventToQueue(after: duration, taskID: element.id) { context in
                     context.removeElement(element)
                 }
@@ -347,15 +357,40 @@ public final class FableController: @unchecked Sendable {
         timedQueue.removeValue(forKey: id)
     }
     
-    func addBoundaryTimeObserver(_ element: any Element, at time: CMTime) {
-        boundaryTimeObservers.append(avPlayer.addBoundaryTimeObserver(forTimes: [NSValue(time: time)], queue: nil) {
-            Task { @MainActor in
-                self.addElement(element)
-            }
-        })
-    }
+//    func addBoundaryTimeObserver(_ element: any Element, at time: CMTime) {
+//        boundaryTimeObservers.append(avPlayer.addBoundaryTimeObserver(forTimes: [NSValue(time: time)], queue: nil) {
+//            Task { @MainActor in
+//                print("add from boundary observer")
+//                self.addElement(element, ignoreLifetime: true)
+//            }
+//        })
+//        
+//        if case .time(let duration, _) = element.lifetime {
+//            boundaryTimeObservers.append(avPlayer.addBoundaryTimeObserver(forTimes: [NSValue(time: time + duration.cmTime)], queue: nil) {
+//                Task { @MainActor in
+//                    print("from boundary observer")
+//                    self.removeElement(element)
+//                }
+//            })
+//        }
+//    }
     
     func clearBoundaryTimeObserver() {
         boundaryTimeObservers.forEach { avPlayer.removeTimeObserver($0) }
+    }
+    
+    public func onReceive(_ message: Message) {
+        switch message {
+        case .proceed:
+            Task { await self.next() }
+        case .pauseVideo:
+            for video in activeElements.compactMap({ $0 as? Video }) {
+                Task { await video.pause() }
+            }
+        case .resumeVideo:
+            for video in activeElements.compactMap({ $0 as? Video }) {
+                Task { await video.play() }
+            }
+        }
     }
 }

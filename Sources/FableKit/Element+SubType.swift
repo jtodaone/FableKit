@@ -75,8 +75,6 @@ public struct Video: GroupElement, Loadable {
     
     private let avPlayer: AVQueuePlayer
     
-//    public var context: FableController?
-//    internal let
     internal let avPlayerItem: AVPlayerItem
     
     nonisolated public var description: String {
@@ -169,14 +167,53 @@ public struct Video: GroupElement, Loadable {
             let initialEvents = events.filter { $0.1.cmTime.value <= 1}
             let observedEvents = events.filter { $0.1.cmTime.value > 1 }
             
+            let observedTimedEvents = observedEvents.filter { $0.0.lifetime != .instant }
+            var observedInstantEvents = observedEvents.filter { $0.0.lifetime == .instant }.map { ObservedInstantEvent($0) }
+            
             for event in initialEvents {
-                context.addElement(event.0)
+                context.addElement(event.0, ignoreLifetime: true)
+                
+                if case .time(let duration, _) = event.0.lifetime {
+                    player.addBoundaryTimeObserver(forTimes: [NSValue(time: event.1.cmTime + duration.cmTime)], queue: nil) {
+                        Task { @MainActor in
+                            context.removeElement(event.0)
+                        }
+                    }
+                }
             }
             
-            for event in observedEvents {
+            for event in observedTimedEvents {
                 player.addBoundaryTimeObserver(forTimes: [NSValue(time: event.1.cmTime)], queue: nil) {
                     Task { @MainActor in
-                        context.addElement(event.0)
+                        context.addElement(event.0, ignoreLifetime: true)
+                    }
+                }
+                
+                if case .time(let duration, _) = event.0.lifetime {
+                    player.addBoundaryTimeObserver(forTimes: [NSValue(time: event.1.cmTime + duration.cmTime)], queue: nil) {
+                        Task { @MainActor in
+                            context.removeElement(event.0)
+                        }
+                    }
+                }
+            }
+            
+            for event in observedInstantEvents {
+                player.addBoundaryTimeObserver(forTimes: [NSValue(time: event.event.1.cmTime)], queue: nil) {
+                    Task { @MainActor in
+                        context.addElement(event.event.0, ignoreLifetime: true)
+                        await Task.yield()
+                        event.hasAppeared = true
+                    }
+                }
+                
+                player.addBoundaryTimeObserver(forTimes: [NSValue(time: event.event.1.cmTime + CMTime(value: 1, timescale: 60))], queue: nil) {
+                    Task { @MainActor in
+                        repeat {
+                            try await Task.sleep(for: .milliseconds(10))
+                        } while (!event.hasAppeared || player.timeControlStatus == .paused)
+                        
+                        context.removeElement(id: event.event.0.id)
                     }
                 }
             }
@@ -189,6 +226,16 @@ public struct Video: GroupElement, Loadable {
         }
         
         self.isLoaded = true
+        
+        final class ObservedInstantEvent: @unchecked Sendable {
+            fileprivate init(_ event: (any Element, Duration), hasAppeared: Bool = false) {
+                self.hasAppeared = hasAppeared
+                self.event = event
+            }
+            
+            var hasAppeared: Bool = false
+            let event: (any Element, Duration)
+        }
     }
     
     public init(_ resource: String, withExtension fileExtension: String = "mp4", in bundle: Bundle? = nil, initialPosition: Position = (.zero, false), @TimelineBuilder events: () -> ([Duration], [any Element])) {
@@ -199,9 +246,11 @@ public struct Video: GroupElement, Loadable {
         self.init(url, initialPosition: initialPosition, events: events)
     }
     
-//    public func withContext(_ context: FableController) -> Self {
-//        var copy = self
-//        copy.context = context
-//        return copy
-//    }
+    internal func play() {
+        avPlayer.play()
+    }
+    
+    internal func pause() {
+        avPlayer.pause()
+    }
 }

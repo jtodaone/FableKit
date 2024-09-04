@@ -251,7 +251,7 @@ public struct EventElement: Element {
     public var onRender: RenderEventHandler? = nil
     public var onDisappear: RenderEventHandler? = nil
     
-    init(description: String = "<Swift Function>", onRender: (@MainActor @escaping @Sendable (FableController) -> Void)) {
+    public init(description: String = "<Swift Function>", onRender: (@MainActor @escaping @Sendable (FableController) -> Void)) {
         self.description = description
         self.onRender = onRender
     }

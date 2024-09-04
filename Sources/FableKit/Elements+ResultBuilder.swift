@@ -48,6 +48,14 @@ public func +(_ lhs: (Duration, any Element), _ rhs: Duration) -> (Duration, any
     return (lhs.0, copy)
 }
 
+postfix operator -|
+
+postfix public func -|(_ item: any Element) -> any Element {
+    var copy = item
+    copy.lifetime = .instant
+    return copy
+}
+
 @resultBuilder
 public struct TimelineBuilder {
     public static func buildBlock(_ components: (Duration, any Element)...) -> ([Duration], [any Element]) {

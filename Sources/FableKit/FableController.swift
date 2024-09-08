@@ -89,8 +89,9 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
     }
     
     deinit {
+        let id = self.id
         Task {
-            await SignalDispatch.main.remove(subscriber: self)
+            await SignalDispatch.main.remove(subscriber: id)
         }
     }
     

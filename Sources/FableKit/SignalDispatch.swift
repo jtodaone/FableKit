@@ -12,8 +12,8 @@ public final class SignalDispatch {
         subscribers.append(subscriber)
     }
     
-    public func remove(subscriber: any SignalReceiver) {
-        subscribers = subscribers.filter { $0.id != subscriber.id }
+    public func remove(subscriber: UUID) {
+        subscribers = subscribers.filter { $0.id != subscriber }
     }
     
     public func broadcastSignal(_ message: Message) {

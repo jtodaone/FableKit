@@ -126,7 +126,7 @@ public struct TimelinedElement: GroupElement {
     }
 }
 
-public struct ViewElement: Element, @unchecked Sendable {
+public struct ViewElement: Element, @unchecked Sendable, ParentReferencingElement {
     public var description = "<View>"
     public var id = UUID()
     public var contentData: ContentData
@@ -143,6 +143,8 @@ public struct ViewElement: Element, @unchecked Sendable {
     public let initialPosition: Position
     public let initialRotation: Rotation
     
+    public var parentID: UUID?
+    
     public init(description: String = "<View>", id: UUID = UUID(), type: ContentData = .other, lifetime: Lifetime = .element(count: 1), isOverlay: Bool = true, initialPosition: Position = (.zero, false), initialRotation: Rotation = (.init(), false), @ViewBuilder body: () -> some View) {
         self.description = description
         self.id = id
@@ -154,20 +156,15 @@ public struct ViewElement: Element, @unchecked Sendable {
         self.initialRotation = initialRotation
     }
     
-//    public init(description: String = "<View>", id: UUID = UUID(), type: ContentData = .other, lifetime: Lifetime = .element(count: 1), isOverlay: Bool = true, initialPosition: Position = (.zero, false), initialRotation: Rotation = (.init(), false), @ViewBuilder body: (FableController) -> some View) {
-//        self.description = description
-//        self.id = id
-//        self.contentData = type
-//        self.isOverlay = isOverlay
-//        self.body = AnyView(body())
-//        
-//        self.initialPosition = initialPosition
-//        self.initialRotation = initialRotation
-//    }
+    public func withParent(_ parentID: UUID) -> ViewElement {
+        var copy = self
+        copy.parentID = parentID
+        return copy
+    }
 }
 
 @MainActor
-public struct EntityElement: Element, Loadable {
+public struct EntityElement: Element, Loadable, ParentReferencingElement {
     public var entity: Entity?
     public var description: String = "<Entity>"
     public var id: UUID = UUID()
@@ -187,6 +184,8 @@ public struct EntityElement: Element, Loadable {
     public let initialPosition: Position
     public let initialRotation: Rotation
     public let initialScale: SIMD3<Float>
+    
+    public var parentID: UUID? = nil
     
     public init(entity: Entity, description: String = "<Entity>", initialPosition: Position = (.zero, false), initialRotation: Rotation = (EulerAngles(), false), lifetime: Lifetime = .element(count: 1), initialScale: SIMD3<Float> = .one, isInteractable: Bool = false, onRender: @escaping RenderEventHandler = { _ in }, onDisappear: @escaping RenderEventHandler = { _ in }) {
         self.entity = entity
@@ -237,6 +236,12 @@ public struct EntityElement: Element, Loadable {
         } else {
             return self
         }
+    }
+    
+    public func withParent(_ parentID: UUID) -> Self {
+        var copy = self
+        copy.parentID = parentID
+        return copy
     }
 }
 

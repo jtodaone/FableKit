@@ -93,6 +93,11 @@ public protocol ControllerReferencingElement: Element {
     @MainActor func withContext(_ context: FableController) -> Self
 }
 
+public protocol ParentReferencingElement: Element {
+    @MainActor var parentID: UUID? { get set }
+    @MainActor func withParent(_ parentID: UUID) -> Self
+}
+
 protocol GroupElement: Element {
     @MainActor var elements: [any Element] { get set }
     @MainActor func withNewElements(_ newElements: [any Element]) -> Self

@@ -123,13 +123,26 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
         } update: { content, attachments in
             for floatingView in self.floatingViewAttachmentsToAdd {
                 if let attachment = attachments.entity(for: floatingView.id) {
-                    if floatingView.initialPosition.relativeToHead {
+                    switch floatingView.initialPosition.anchor {
+                    case .relativeToHead:
                         let headEntity = Entity()
                         headEntity.setPosition(self.currentHeadPosition, relativeTo: nil)
                         headEntity.setOrientation(simd_quatf(self.currentHeadRotation), relativeTo: nil)
                         attachment.move(to: Transform(translation: floatingView.initialPosition.position), relativeTo: headEntity)
-                    } else {
+                    case .world:
                         attachment.setPosition(floatingView.initialPosition.position, relativeTo: nil)
+                    case .relativeTo(let anchorEntity):
+                        break
+                    case .relativeToParent:
+                        guard
+                            let parentID = floatingView.parentID,
+                            let parent = self.activeElements.first(where: { $0.id == parentID })
+                        else {
+                            attachment.setPosition(floatingView.initialPosition.position, relativeTo: nil)
+                            break
+                        }
+                        
+                        break
                     }
                     
                     if floatingView.initialRotation.lookAtHead {
@@ -148,18 +161,25 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
                 let entityElement = entry.0
                 guard entityElement.entity != nil else { continue }
                 
-                if entityElement.initialPosition.relativeToHead {
+                switch entityElement.initialPosition.anchor {
+                case .relativeToHead:
                     let headEntity = Entity()
                     headEntity.setPosition(self.currentHeadPosition, relativeTo: nil)
                     headEntity.setOrientation(simd_quatf(self.currentHeadRotation), relativeTo: nil)
                     entityElement.entity!.move(to: Transform(translation: entityElement.initialPosition.position), relativeTo: headEntity)
-                } else {
+                case .world:
                     entityElement.entity!.setPosition(entityElement.initialPosition.position, relativeTo: nil)
+                case .relativeTo(let anchorEntity):
+                    let uuid: UUID = anchorEntity.id;
+                    
+                    break
+                case .relativeToParent:
+                    break
                 }
                 
                 if entityElement.initialRotation.lookAtHead {
                     entityElement.entity!.look(at: self.currentHeadPosition, from: entityElement.initialPosition.position + self.currentHeadPosition, relativeTo: nil)
-                    entityElement.entity?.setOrientation(simd_quatf(angle: Float.pi, axis: SIMD3<Float>(0, 1, 0)), relativeTo: entityElement.entity!)
+                    entityElement.entity!.setOrientation(simd_quatf(angle: Float.pi, axis: SIMD3<Float>(0, 1, 0)), relativeTo: entityElement.entity!)
                     entityElement.entity!.setOrientation(simd_quatf(Rotation3D(eulerAngles: entityElement.initialRotation.0)), relativeTo: entityElement.entity!)
                 } else {
                     entityElement.entity!.setOrientation(simd_quatf(Rotation3D(eulerAngles: entityElement.initialRotation.0)), relativeTo: entityElement.entity!)

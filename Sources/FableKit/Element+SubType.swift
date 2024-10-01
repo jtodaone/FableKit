@@ -168,52 +168,105 @@ public struct Video: GroupElement, Loadable {
             let observedEvents = events.filter { $0.1.cmTime.value > 1 }
             
             let observedTimedEvents = observedEvents.filter { $0.0.lifetime != .instant }
-            var observedInstantEvents = observedEvents.filter { $0.0.lifetime == .instant }.map { ObservedInstantEvent($0) }
+            let observedInstantEvents = observedEvents.filter { $0.0.lifetime == .instant }.map { ObservedInstantEvent($0) }
             
             for event in initialEvents {
-                context.addElement(event.0, ignoreLifetime: true)
-                
-                if case .time(let duration, _) = event.0.lifetime {
-                    player.addBoundaryTimeObserver(forTimes: [NSValue(time: event.1.cmTime + duration.cmTime)], queue: nil) {
-                        Task { @MainActor in
-                            context.removeElement(event.0)
+                if let parentReferencingEvent = event.0 as? any ParentReferencingElement {
+                    let newEvent = parentReferencingEvent.withParent(id)
+                    context.addElement(newEvent, ignoreLifetime: true)
+                    
+                    if case .time(let duration, _) = event.0.lifetime {
+                        player.addBoundaryTimeObserver(forTimes: [NSValue(time: event.1.cmTime + duration.cmTime)], queue: nil) {
+                            Task { @MainActor in
+                                context.removeElement(newEvent)
+                            }
+                        }
+                    }
+                } else {
+                    context.addElement(event.0, ignoreLifetime: true)
+                    
+                    if case .time(let duration, _) = event.0.lifetime {
+                        player.addBoundaryTimeObserver(forTimes: [NSValue(time: event.1.cmTime + duration.cmTime)], queue: nil) {
+                            Task { @MainActor in
+                                context.removeElement(event.0)
+                            }
                         }
                     }
                 }
             }
             
             for event in observedTimedEvents {
-                player.addBoundaryTimeObserver(forTimes: [NSValue(time: event.1.cmTime)], queue: nil) {
-                    Task { @MainActor in
-                        context.addElement(event.0, ignoreLifetime: true)
-                    }
-                }
-                
-                if case .time(let duration, _) = event.0.lifetime {
-                    player.addBoundaryTimeObserver(forTimes: [NSValue(time: event.1.cmTime + duration.cmTime)], queue: nil) {
+                if let parentReferencingEvent = event.0 as? any ParentReferencingElement {
+                    let newEvent = parentReferencingEvent.withParent(id)
+                    
+                    player.addBoundaryTimeObserver(forTimes: [NSValue(time: event.1.cmTime)], queue: nil) {
                         Task { @MainActor in
-                            context.removeElement(event.0)
+                            context.addElement(newEvent, ignoreLifetime: true)
+                        }
+                    }
+                    
+                    if case .time(let duration, _) = newEvent.lifetime {
+                        player.addBoundaryTimeObserver(forTimes: [NSValue(time: event.1.cmTime + duration.cmTime)], queue: nil) {
+                            Task { @MainActor in
+                                context.removeElement(newEvent)
+                            }
+                        }
+                    }
+                } else {
+                    player.addBoundaryTimeObserver(forTimes: [NSValue(time: event.1.cmTime)], queue: nil) {
+                        Task { @MainActor in
+                            context.addElement(event.0, ignoreLifetime: true)
+                        }
+                    }
+                    
+                    if case .time(let duration, _) = event.0.lifetime {
+                        player.addBoundaryTimeObserver(forTimes: [NSValue(time: event.1.cmTime + duration.cmTime)], queue: nil) {
+                            Task { @MainActor in
+                                context.removeElement(event.0)
+                            }
                         }
                     }
                 }
             }
             
             for event in observedInstantEvents {
-                player.addBoundaryTimeObserver(forTimes: [NSValue(time: event.event.1.cmTime)], queue: nil) {
-                    Task { @MainActor in
-                        context.addElement(event.event.0, ignoreLifetime: true)
-                        await Task.yield()
-                        event.hasAppeared = true
+                if let parentReferencingEvent = event.event.0 as? any ParentReferencingElement {
+                    let newEvent = parentReferencingEvent.withParent(id)
+                    
+                    player.addBoundaryTimeObserver(forTimes: [NSValue(time: event.event.1.cmTime)], queue: nil) {
+                        Task { @MainActor in
+                            context.addElement(newEvent, ignoreLifetime: true)
+                            await Task.yield()
+                            event.hasAppeared = true
+                        }
                     }
-                }
-                
-                player.addBoundaryTimeObserver(forTimes: [NSValue(time: event.event.1.cmTime + CMTime(value: 1, timescale: 60))], queue: nil) {
-                    Task { @MainActor in
-                        repeat {
-                            try await Task.sleep(for: .milliseconds(10))
-                        } while (!event.hasAppeared || player.timeControlStatus == .paused)
-                        
-                        context.removeElement(id: event.event.0.id)
+                    
+                    player.addBoundaryTimeObserver(forTimes: [NSValue(time: event.event.1.cmTime + CMTime(value: 1, timescale: 60))], queue: nil) {
+                        Task { @MainActor in
+                            repeat {
+                                try await Task.sleep(for: .milliseconds(10))
+                            } while (!event.hasAppeared || player.timeControlStatus == .paused)
+                            
+                            context.removeElement(id: newEvent.id)
+                        }
+                    }
+                } else {
+                    player.addBoundaryTimeObserver(forTimes: [NSValue(time: event.event.1.cmTime)], queue: nil) {
+                        Task { @MainActor in
+                            context.addElement(event.event.0, ignoreLifetime: true)
+                            await Task.yield()
+                            event.hasAppeared = true
+                        }
+                    }
+                    
+                    player.addBoundaryTimeObserver(forTimes: [NSValue(time: event.event.1.cmTime + CMTime(value: 1, timescale: 60))], queue: nil) {
+                        Task { @MainActor in
+                            repeat {
+                                try await Task.sleep(for: .milliseconds(10))
+                            } while (!event.hasAppeared || player.timeControlStatus == .paused)
+                            
+                            context.removeElement(id: event.event.0.id)
+                        }
                     }
                 }
             }

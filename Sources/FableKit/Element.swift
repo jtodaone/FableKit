@@ -164,6 +164,11 @@ public struct ViewElement: Element, @unchecked Sendable, ParentReferencingElemen
 }
 
 @MainActor
+public struct AnchorElement: Element {
+
+}
+
+@MainActor
 public struct EntityElement: Element, Loadable, ParentReferencingElement {
     public var entity: Entity?
     public var description: String = "<Entity>"

@@ -141,8 +141,12 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
                             attachment.setPosition(floatingView.initialPosition.position, relativeTo: nil)
                             break
                         }
-                        
-                        break
+
+                        if let entityParent = parent as? EntityElement, let entity = entityParent.entity {
+                            attachment.setPosition(floatingView.initialPosition.position, relativeTo: entity)
+                        } else if let videoParent = parent as? Video, let entity = videoParent.entityElement.entity {
+                            attachment.setPosition(floatingView.initialPosition.position, relativeTo: entity)
+                        }
                     }
                     
                     if floatingView.initialRotation.lookAtHead {
@@ -174,7 +178,19 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
                     
                     break
                 case .relativeToParent:
-                    break
+                    guard
+                        let parentID = entityElement.parentID,
+                        let parent = self.activeElements.first(where: { $0.id == parentID })
+                    else {
+                        entityElement.entity!.setPosition(entityElement.initialPosition.position, relativeTo: nil)
+                        break    
+                    }
+
+                    if let entityParent = parent as? EntityElement, let parentEntity = entityParent.entity {
+                        entityElement.entity!.setPosition(entityElement.initialPosition.position, relativeTo: parentEntity)
+                    } else if let videoParent = parent as? Video, let parentEntity = videoParent.entityElement.entity {
+                        entityElement.entity!.setPosition(entityElement.initialPosition.position, relativeTo: parentEntity)
+                    }
                 }
                 
                 if entityElement.initialRotation.lookAtHead {

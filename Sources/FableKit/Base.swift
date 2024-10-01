@@ -18,7 +18,7 @@ extension Page: CustomStringConvertible {
 #if !DEBUG
 public protocol Element: Identifiable, CustomStringConvertible, Sendable {
     var id: UUID { get }
-    var type: ElementMetadata { get }
+    var contentData: ContentData { get }
     var lifetime: Lifetime { get set }
     
     var onRender: RenderEventHandler? { get }

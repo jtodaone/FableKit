@@ -1,12 +1,12 @@
 import simd
 import Spatial
 
-public typealias Position = (position: SIMD3<Float>, anchor: PositionAnchor)
+public typealias Position = (position: SIMD3<Float>, anchor: AnchorType)
 public typealias Rotation = (rotation: EulerAngles, lookAtHead: Bool)
 
-public indirect enum PositionAnchor: ExpressibleByBooleanLiteral {
+public indirect enum AnchorType: ExpressibleByBooleanLiteral {
     public init(booleanLiteral value: Bool) {
-        if value { self = .relativeToHead }
+        if value { self = .relativeToParent }
         else { self = .world }
     }
     

@@ -29,6 +29,7 @@ public struct ConcurrentElement: GroupElement {
     nonisolated public var description: String { elements.map { $0.description }.joined(separator: "\n") }
     public var id = UUID()
     public var contentData: ContentData = .concurrent
+    var anchorOffset: SIMD3<Float> = .zero
     
     private var _lifetime: Lifetime? = nil
     
@@ -55,6 +56,7 @@ public struct ConcurrentElement: GroupElement {
         self.onRender = previous.onRender
         self.onDisappear = previous.onDisappear
         self._lifetime = previous._lifetime
+        self.anchorOffset = previous.anchorOffset
     }
     
     func withNewElements(_ newElements: [any Element]) -> Self {
@@ -77,10 +79,13 @@ public struct TimelinedElement: GroupElement {
     public var elements: [any Element]
     public let times: [Duration]
     public var lifetime: Lifetime = .indefinite(isOver: false)
+
+    var anchorOffset: SIMD3<Float>
     
-    public init(elements: [any Element], times: [Duration]) {
+    public init(elements: [any Element], times: [Duration], anchorOffset: SIMD3<Float> = .zero) {
         self.elements = elements
         self.times = times
+        self.anchorOffset = anchorOffset
         
         let id = self.id
         
@@ -102,6 +107,7 @@ public struct TimelinedElement: GroupElement {
         self.onDisappear = previous.onDisappear
         self.elements = newElements
         self.lifetime = previous.lifetime
+        self.anchorOffset = previous.anchorOffset
         
         let times = previous.times
         let id = previous.id
@@ -165,7 +171,20 @@ public struct ViewElement: Element, @unchecked Sendable, ParentReferencingElemen
 
 @MainActor
 public struct AnchorElement: Element {
+    public var description: String = "<Anchor>"
+    public var id: UUID = UUID()
+    public var lifetime: Lifetime = .indefinite(isOver: false)
+    public var onRender: RenderEventHandler? = nil
+    public var onDisappear: RenderEventHandler? = nil
+    public var contentData: ContentData = .other
 
+    public var anchorEntity: AnchorEntity
+
+    init(position: SIMD3<Float> = .zero, rotation: EulerAngles = .init()) {
+        anchorEntity = AnchorEntity()
+        anchorEntity.setPosition(position, relativeTo: nil)
+        anchorEntity.setOrientation(simd_quatf(Rotation3D(eulerAngles: rotation)), relativeTo: nil)
+    }
 }
 
 @MainActor
@@ -191,8 +210,8 @@ public struct EntityElement: Element, Loadable, ParentReferencingElement {
     public let initialScale: SIMD3<Float>
     
     public var parentID: UUID? = nil
-    
-    public init(entity: Entity, description: String = "<Entity>", initialPosition: Position = (.zero, false), initialRotation: Rotation = (EulerAngles(), false), lifetime: Lifetime = .element(count: 1), initialScale: SIMD3<Float> = .one, isInteractable: Bool = false, onRender: @escaping RenderEventHandler = { _ in }, onDisappear: @escaping RenderEventHandler = { _ in }) {
+
+    public init(entity: Entity, description: String = "<Entity>", initialPosition: Position = (.zero, false), initialRotation: Rotation = (EulerAngles(), false), lifetime: Lifetime = .element(count: 1), initialScale: SIMD3<Float> = .one, isInteractable: Bool = true, onRender: @escaping RenderEventHandler = { _ in }, onDisappear: @escaping RenderEventHandler = { _ in }) {
         self.entity = entity
         self.description = description
         self.id = UUID()
@@ -209,8 +228,8 @@ public struct EntityElement: Element, Loadable, ParentReferencingElement {
             self.entity?.components.set(GestureComponent(canDrag: true, pivotOnDrag: true, preserveOrientationOnPivotDrag: true, canScale: true, canRotate: true))
         }
     }
-    
-    public init(named resourceName: String, in bundle: Bundle? = nil, description: String = "<Entity>", initialPosition: Position = (.zero, false), initialRotation: Rotation = (EulerAngles(), false), initialScale: SIMD3<Float> = .one, isInteractable: Bool = false, lifetime: Lifetime = .element(count: 1), onRender: @escaping RenderEventHandler = { _ in }, onDisappear: @escaping RenderEventHandler = { _ in }) {
+
+    public init(named resourceName: String, in bundle: Bundle? = nil, description: String = "<Entity>", initialPosition: Position = (.zero, false), initialRotation: Rotation = (EulerAngles(), false), initialScale: SIMD3<Float> = .one, isInteractable: Bool = true, lifetime: Lifetime = .element(count: 1), onRender: @escaping RenderEventHandler = { _ in }, onDisappear: @escaping RenderEventHandler = { _ in }) {
         self.resourceName = resourceName
         self.bundle = bundle
         self.description = description

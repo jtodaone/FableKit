@@ -98,7 +98,7 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
     @MainActor
     public var body: some View {
         RealityView { content, attachments in
-            content.add(self.skybox)
+            // content.add(self.skybox)
             
             if let attachment = attachments.entity(for: "overlay") {
                 let head = AnchorEntity(.head, trackingMode: .once)
@@ -142,10 +142,12 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
                             break
                         }
 
-                        if let entityParent = parent as? EntityElement, let entity = entityParent.entity {
-                            attachment.setPosition(floatingView.initialPosition.position, relativeTo: entity)
-                        } else if let videoParent = parent as? Video, let entity = videoParent.entityElement.entity {
-                            attachment.setPosition(floatingView.initialPosition.position, relativeTo: entity)
+                        // if let entityParent = parent as? EntityElement, let entity = entityParent.entity {
+                        //     let realPosition = floatingView.initialPosition.position - entityParent.anchorOffset
+                        //     attachment.setPosition(floatingView.initialPosition.position, relativeTo: entity)
+                        if let videoParent = parent as? Video, let entity = videoParent.entityElement.entity {
+                            let realPosition = floatingView.initialPosition.position + videoParent.anchorOffset
+                            attachment.setPosition(realPosition, relativeTo: entity)
                         }
                     }
                     
@@ -186,10 +188,11 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
                         break    
                     }
 
-                    if let entityParent = parent as? EntityElement, let parentEntity = entityParent.entity {
-                        entityElement.entity!.setPosition(entityElement.initialPosition.position, relativeTo: parentEntity)
-                    } else if let videoParent = parent as? Video, let parentEntity = videoParent.entityElement.entity {
-                        entityElement.entity!.setPosition(entityElement.initialPosition.position, relativeTo: parentEntity)
+                    // if let entityParent = parent as? EntityElement, let parentEntity = entityParent.entity {
+                    //     entityElement.entity!.setPosition(entityElement.initialPosition.position, relativeTo: parentEntity)
+                    if let videoParent = parent as? Video, let parentEntity = videoParent.entityElement.entity {
+                        let realPosition = entityElement.initialPosition.position + videoParent.anchorOffset
+                        entityElement.entity!.setPosition(realPosition, relativeTo: parentEntity)
                     }
                 }
                 

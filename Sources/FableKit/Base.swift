@@ -101,6 +101,7 @@ public protocol ParentReferencingElement: Element {
 protocol GroupElement: Element {
     @MainActor var elements: [any Element] { get set }
     @MainActor func withNewElements(_ newElements: [any Element]) -> Self
+    @MainActor var anchorOffset: SIMD3<Float> { get }
 }
 
 protocol Loadable: Element {

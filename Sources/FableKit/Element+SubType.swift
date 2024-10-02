@@ -51,6 +51,8 @@ public struct Video: GroupElement, Loadable {
     public var onDisappear: RenderEventHandler? = nil
     
     public var isLoaded: Bool = false
+
+    var anchorOffset: SIMD3<Float>
     
     private var _elements: [any Element] = []
     nonisolated public var elements: [any Element] {
@@ -83,7 +85,7 @@ public struct Video: GroupElement, Loadable {
         }.joined(separator: "\n")
     }
     
-    public init(_ url: URL, initialPosition: Position = (.zero, false), @TimelineBuilder events: () -> ([Duration], [any Element])) {
+    public init(_ url: URL, initialPosition: Position = (.zero, false), anchorOffset: SIMD3<Float> = .zero, @TimelineBuilder events: () -> ([Duration], [any Element]) ) {
         let videoPlayerItem = AVPlayerItem(url: url)
         self.avPlayerItem = videoPlayerItem
         self.initialPosition = initialPosition
@@ -109,6 +111,8 @@ public struct Video: GroupElement, Loadable {
         self.onRender = { context in
             fatalError("Video is not loaded")
         }
+
+        self.anchorOffset = anchorOffset
     }
     
     func withNewElements(_ newElements: [any Element]) -> Self {
@@ -124,6 +128,7 @@ public struct Video: GroupElement, Loadable {
         self.times = times
         self.lifetime = previous.lifetime
         self.initialPosition = previous.initialPosition
+        self.anchorOffset = previous.anchorOffset
         
         let player = AVQueuePlayer()
         
@@ -291,12 +296,12 @@ public struct Video: GroupElement, Loadable {
         }
     }
     
-    public init(_ resource: String, withExtension fileExtension: String = "mp4", in bundle: Bundle? = nil, initialPosition: Position = (.zero, false), @TimelineBuilder events: () -> ([Duration], [any Element])) {
+    public init(_ resource: String, withExtension fileExtension: String = "mp4", in bundle: Bundle? = nil, initialPosition: Position = (.zero, false), anchorOffset: SIMD3<Float> = .zero, @TimelineBuilder events: () -> ([Duration], [any Element])) {
         let bundle = bundle ?? Fable.defaultBundle
         guard let url = bundle.url(forResource: resource, withExtension: fileExtension) else {
             fatalError("File is not found in the bundle \"\(bundle.bundlePath)\"")
         }
-        self.init(url, initialPosition: initialPosition, events: events)
+        self.init(url, initialPosition: initialPosition, anchorOffset: anchorOffset, events: events)
     }
     
     internal func play() {

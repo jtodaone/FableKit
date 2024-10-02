@@ -81,24 +81,27 @@ extension Page {
 }
 
 extension ConcurrentElement {
-    public init(@PageBuilder elements: () -> [any Element]) {
+    public init(anchorOffset: SIMD3<Float> = .zero, @PageBuilder elements: () -> [any Element]) {
         self.elements = elements()
+        self.anchorOffset = anchorOffset
     }
     
-    public init(@PageBuilder elements: () -> [any Element], onDisappear: @escaping @Sendable (FableController) -> ()) {
+    public init(anchorOffset: SIMD3<Float> = .zero, @PageBuilder elements: () -> [any Element], onDisappear: @escaping @Sendable (FableController) -> ()) {
         self.elements = elements()
         self.onDisappear = onDisappear
+        self.anchorOffset = anchorOffset
     }
     
-    public init(id: UUID, @PageBuilder elements: () -> [any Element], onDisappear: @escaping @Sendable (FableController) -> ()) {
+    public init(id: UUID, anchorOffset: SIMD3<Float> = .zero, @PageBuilder elements: () -> [any Element], onDisappear: @escaping @Sendable (FableController) -> ()) {
         self.id = id
         self.elements = elements()
         self.onDisappear = onDisappear
+        self.anchorOffset = anchorOffset
     }
 }
 
 extension TimelinedElement {
-    public init (@TimelineBuilder elements: () -> ([Duration], [any Element])) {
+    public init (anchorOffset: SIMD3<Float> = .zero, @TimelineBuilder elements: () -> ([Duration], [any Element])) {
         let times = elements().0
         let elements = elements().1
         
@@ -117,5 +120,6 @@ extension TimelinedElement {
         self.onDisappear = { @Sendable context in
             context.cancelQueue(for: id)
         }
+        self.anchorOffset = anchorOffset
     }
 }

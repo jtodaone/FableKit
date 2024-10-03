@@ -242,6 +242,10 @@ public struct EntityElement: Element, Loadable, ParentReferencingElement {
         self.onRender = onRender
         self.onDisappear = onDisappear
         self.isInteractable = isInteractable
+        
+        if isInteractable {
+            self.entity?.enableGesture()
+        }
     }
     
     public func load() async throws -> EntityElement {
@@ -253,7 +257,7 @@ public struct EntityElement: Element, Loadable, ParentReferencingElement {
             var copy = self
             copy.entity = entity
             if copy.isInteractable {
-                copy.entity?.components.set(GestureComponent(canDrag: true, pivotOnDrag: true, preserveOrientationOnPivotDrag: true, canScale: true, canRotate: true))
+                copy.entity?.enableGesture()
             }
             copy.isLoaded = true
             return copy

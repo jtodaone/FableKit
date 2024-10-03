@@ -75,6 +75,11 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
     
     @ObservationIgnored var currentHeadPosition: SIMD3<Float> = .zero
     @ObservationIgnored var currentHeadRotation: simd_float3x3 = .init(0)
+
+    var entityGarbageBag: [(id: Entity.ID, hasBeenCollected: Bool)] = []
+    var garbageColleector: Task<Void, any Error>?
+
+    private var realityViewContent: RealityViewContent? = nil
     
     @MainActor
     public init?(fable: Fable) {
@@ -86,6 +91,10 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
         guard let _ = try? session.setCategory(.playback, mode: .moviePlayback) else { return nil }
         
         self.skybox = createEmptySkybox()
+
+        garbageColleector = Task {
+            try await garbageCollect()
+        }
     }
     
     deinit {
@@ -94,11 +103,32 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
             await SignalDispatch.main.remove(subscriber: id)
         }
     }
+
+    func garbageCollect() async throws {
+        while true {
+            await Task.yield()
+            try Task.checkCancellation()
+            try? await Task.sleep(for: .milliseconds(10))
+            if let realityViewContent {
+                entityGarbageBag = entityGarbageBag.map { garbage in
+                    guard !garbage.hasBeenCollected else { return garbage }
+                    print("collecting garbage")
+                    if let entity = realityViewContent.entities.first(where: { $0.id == garbage.id }) {
+                        realityViewContent.remove(entity)
+                        return (garbage.id, true)
+                    }
+                    return (garbage.id, false)
+                }
+                entityGarbageBag = entityGarbageBag.filter { !$0.hasBeenCollected }
+            }
+        }
+    }
     
     @MainActor
     public var body: some View {
         RealityView { content, attachments in
             // content.add(self.skybox)
+            self.realityViewContent = content
             
             if let attachment = attachments.entity(for: "overlay") {
                 let head = AnchorEntity(.head, trackingMode: .once)
@@ -166,6 +196,10 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
             for entry in self.entitiesToAdd {
                 let entityElement = entry.0
                 guard entityElement.entity != nil else { continue }
+
+                if entityElement.isInteractable {
+                    entityElement.entity!.enableGesture()
+                }
                 
                 switch entityElement.initialPosition.anchor {
                 case .relativeToHead:
@@ -210,6 +244,9 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
                     Task {
                         try await Task.sleep(for: duration)
                         self.entitiesToRemove.append(entityElement)
+                        if let id = entityElement.entity?.id {
+                            self.entityGarbageBag.append((id, false))
+                        }
                     }
                 }
                 
@@ -277,6 +314,8 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
         entitiesToRemove.append(contentsOf: entityElements.filter { element in
             element.lifetime.isOver
         })
+
+        entityGarbageBag.append(contentsOf: entitiesToRemove.compactMap { $0.entity?.id }.map { ($0, false) } )
         
         addElement(currentElement)
         
@@ -333,6 +372,10 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
     func removeElement(_ element: any Element) {
         if let entityElement = element as? EntityElement {
             entitiesToRemove.append(entityElement)
+            
+            if let id = entityElement.entity?.id {
+                self.entityGarbageBag.append((id, false))
+            }
             return
         } else if let concurrentElement = element as? (any GroupElement) {
             for element in concurrentElement.elements {

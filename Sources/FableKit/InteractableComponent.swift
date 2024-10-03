@@ -247,6 +247,21 @@ public extension Entity {
         get { orientation(relativeTo: nil) }
         set { setOrientation(newValue, relativeTo: nil) }
     }
+
+    func enableGesture(canDrag: Bool = true, pivotOnDrag: Bool = true, preserveOrientationOnPivotDrag: Bool = true, canScale: Bool = true, canRotate: Bool = true) {
+        self.components.set(GestureComponent(canDrag: canDrag, pivotOnDrag: pivotOnDrag, preserveOrientationOnPivotDrag: preserveOrientationOnPivotDrag, canScale: canScale, canRotate: canRotate))
+        self.components.set(InputTargetComponent(allowedInputTypes: .all))
+        if let model = (self.components.first(where: { $0 is ModelComponent }) as? ModelComponent) {
+            let boundingBox = model.mesh.bounds
+            let collisionShape = ShapeResource.generateBox(size: boundingBox.extents)
+            let collisionComponent = CollisionComponent(shapes: [collisionShape])
+            self.components.set(collisionComponent)
+        } else {
+            let collisionShape = ShapeResource.generateBox(width: 1, height: 1, depth: 1)
+            let collisionComponent = CollisionComponent(shapes: [collisionShape])
+            self.components.set(collisionComponent)
+        }
+    }
 }
 
 

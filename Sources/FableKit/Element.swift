@@ -211,7 +211,48 @@ public struct EntityElement: Element, Loadable, ParentReferencingElement {
     
     public var parentID: UUID? = nil
 
-    public init(entity: Entity, description: String = "<Entity>", initialPosition: Position = (.zero, false), initialRotation: Rotation = (EulerAngles(), false), lifetime: Lifetime = .element(count: 1), initialScale: SIMD3<Float> = .one, isInteractable: Bool = true, onRender: @escaping RenderEventHandler = { _ in }, onDisappear: @escaping RenderEventHandler = { _ in }) {
+    public let fadeInOutDuration: (in: Duration, out: Duration)?
+    internal var fadeInOutAnimation: (in: AnimationResource?, out: AnimationResource?) = (nil, nil)
+
+    mutating internal func setupFade() {
+        if let fadeInOutDuration {
+            let opacityComponent = OpacityComponent(opacity: 0.0)
+            entity?.components.set(opacityComponent)
+            // entity?.components[OpacityComponent.self]?.opacity = 0
+            let fadeIn = FromToByAnimation<Float>(
+                name: "fadein",
+                from: 0.0,
+                to: 1.0,
+                duration: fadeInOutDuration.in.seconds,
+                timing: .easeInOut,
+                bindTarget: .opacity,
+                repeatMode: .none
+            )
+            let fadeOut = FromToByAnimation<Float>(
+                name: "fadeout",
+                from: 1.0,
+                to: 0.0,
+                duration: fadeInOutDuration.out.seconds,
+                timing: .easeInOut,
+                bindTarget: .opacity,
+                repeatMode: .none
+            )
+            fadeInOutAnimation = (try? AnimationResource.generate(with: fadeIn), try? AnimationResource.generate(with: fadeOut))
+        }
+    }
+
+    public init(
+        entity: Entity,
+        description: String = "<Entity>",
+        initialPosition: Position = (.zero, false),
+        initialRotation: Rotation = (EulerAngles(), false),
+        lifetime: Lifetime = .element(count: 1),
+        initialScale: SIMD3<Float> = .one,
+        isInteractable: Bool = true,
+        fadeInOutDuration: (in: Duration, out: Duration)? = nil,
+        onRender: @escaping RenderEventHandler = { _ in },
+        onDisappear: @escaping RenderEventHandler = { _ in }
+    ) {
         self.entity = entity
         self.description = description
         self.id = UUID()
@@ -221,15 +262,30 @@ public struct EntityElement: Element, Loadable, ParentReferencingElement {
         self.lifetime = lifetime
         self.onRender = onRender
         self.onDisappear = onDisappear
+        self.fadeInOutDuration = fadeInOutDuration
         
         self.isInteractable = isInteractable
         
         if isInteractable {
             self.entity?.components.set(GestureComponent(canDrag: true, pivotOnDrag: true, preserveOrientationOnPivotDrag: true, canScale: true, canRotate: true))
         }
+
+        setupFade()
     }
 
-    public init(named resourceName: String, in bundle: Bundle? = nil, description: String = "<Entity>", initialPosition: Position = (.zero, false), initialRotation: Rotation = (EulerAngles(), false), initialScale: SIMD3<Float> = .one, isInteractable: Bool = true, lifetime: Lifetime = .element(count: 1), onRender: @escaping RenderEventHandler = { _ in }, onDisappear: @escaping RenderEventHandler = { _ in }) {
+    public init(
+        named resourceName: String,
+        in bundle: Bundle? = nil,
+        description: String = "<Entity>",
+        initialPosition: Position = (.zero, false),
+        initialRotation: Rotation = (EulerAngles(), false),
+        initialScale: SIMD3<Float> = .one,
+        isInteractable: Bool = true,
+        lifetime: Lifetime = .element(count: 1),
+        fadeInOutDuration: (in: Duration, out: Duration)? = nil,
+        onRender: @escaping RenderEventHandler = { _ in },
+        onDisappear: @escaping RenderEventHandler = { _ in }
+    ) {
         self.resourceName = resourceName
         self.bundle = bundle
         self.description = description
@@ -242,6 +298,7 @@ public struct EntityElement: Element, Loadable, ParentReferencingElement {
         self.onRender = onRender
         self.onDisappear = onDisappear
         self.isInteractable = isInteractable
+        self.fadeInOutDuration = fadeInOutDuration
         
         if isInteractable {
             self.entity?.enableGesture()
@@ -259,6 +316,7 @@ public struct EntityElement: Element, Loadable, ParentReferencingElement {
             if copy.isInteractable {
                 copy.entity?.enableGesture()
             }
+            copy.setupFade()
             copy.isLoaded = true
             return copy
         } else {

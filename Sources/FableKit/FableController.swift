@@ -112,7 +112,6 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
             if let realityViewContent {
                 entityGarbageBag = entityGarbageBag.map { garbage in
                     guard !garbage.hasBeenCollected else { return garbage }
-                    print("collecting garbage")
                     if let entity = realityViewContent.entities.first(where: { $0.id == garbage.id }) {
                         realityViewContent.remove(entity)
                         return (garbage.id, true)
@@ -241,6 +240,15 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
                 entityElement.entity!.setScale(entityElement.initialScale, relativeTo: entityElement.entity!)
                 
                 if case .time(let duration, _) = entityElement.lifetime, !entry.ignoreLifetime {
+                    if let fadeInOutDuration = entityElement.fadeInOutDuration {
+                        Task {
+                            guard let fadeOutAnimationResource = entityElement.fadeInOutAnimation.out else {
+                                return
+                            }
+                            try await Task.sleep(for: duration - fadeInOutDuration.out)
+                            entityElement.entity?.playAnimation(fadeOutAnimationResource, transitionDuration: 0, startsPaused: false)
+                        }
+                    }
                     Task {
                         try await Task.sleep(for: duration)
                         self.entitiesToRemove.append(entityElement)
@@ -251,6 +259,9 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
                 }
                 
                 content.add(entityElement.entity!)
+                if let fadeInAnimation = entityElement.fadeInOutAnimation.in {
+                    entityElement.entity?.playAnimation(fadeInAnimation, transitionDuration: 0, startsPaused: false)
+                }
                 
                 Task {
                     self.activeElements.append(entityElement)

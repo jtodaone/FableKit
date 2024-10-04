@@ -164,6 +164,27 @@ public struct Video: GroupElement, Loadable {
         self.entityElement = entityElement
         
         self.onRender = { context in
+            func entityElementFadeInOutSetup(element: any Element, eventTime: CMTime, elementDuration: Duration) {
+                if let entityElement = element as? EntityElement, let fadeInOutDuration = entityElement.fadeInOutDuration {
+                    let fadeOutTime = eventTime + elementDuration.cmTime - fadeInOutDuration.out.cmTime
+                    print("setting boundary time observer for fadeout at: \(fadeOutTime)")
+                    player.addBoundaryTimeObserver(forTimes: [NSValue(time: fadeOutTime)], queue: nil) {
+                        print("fadeout observer triggered")
+                        Task { @MainActor in
+                            guard let fadeOutAnimationResource = entityElement.fadeInOutAnimation.out else {
+                                print("no fadeout animation detected")
+                                return
+                            }
+                            guard let entity = entityElement.entity else {
+                                print("no entity detected")
+                                return
+                            }
+                            // entity.components[OpacityComponent.self]?.opacity = 1
+                            entity.playAnimation(fadeOutAnimationResource, transitionDuration: 0, startsPaused: false)
+                        }
+                    }
+                }
+            }
             player.play()
             
             context.addElement(entityElement)
@@ -181,6 +202,8 @@ public struct Video: GroupElement, Loadable {
                     context.addElement(newEvent, ignoreLifetime: true)
                     
                     if case .time(let duration, _) = event.0.lifetime {
+                        entityElementFadeInOutSetup(element: event.0, eventTime: event.1.cmTime, elementDuration: duration)
+
                         player.addBoundaryTimeObserver(forTimes: [NSValue(time: event.1.cmTime + duration.cmTime)], queue: nil) {
                             Task { @MainActor in
                                 context.removeElement(newEvent)
@@ -191,6 +214,8 @@ public struct Video: GroupElement, Loadable {
                     context.addElement(event.0, ignoreLifetime: true)
                     
                     if case .time(let duration, _) = event.0.lifetime {
+                        entityElementFadeInOutSetup(element: event.0, eventTime: event.1.cmTime, elementDuration: duration)
+
                         player.addBoundaryTimeObserver(forTimes: [NSValue(time: event.1.cmTime + duration.cmTime)], queue: nil) {
                             Task { @MainActor in
                                 context.removeElement(event.0)
@@ -211,6 +236,7 @@ public struct Video: GroupElement, Loadable {
                     }
                     
                     if case .time(let duration, _) = newEvent.lifetime {
+                        entityElementFadeInOutSetup(element: event.0, eventTime: event.1.cmTime, elementDuration: duration)
                         player.addBoundaryTimeObserver(forTimes: [NSValue(time: event.1.cmTime + duration.cmTime)], queue: nil) {
                             Task { @MainActor in
                                 context.removeElement(newEvent)
@@ -225,6 +251,7 @@ public struct Video: GroupElement, Loadable {
                     }
                     
                     if case .time(let duration, _) = event.0.lifetime {
+                        entityElementFadeInOutSetup(element: event.0, eventTime: event.1.cmTime, elementDuration: duration)
                         player.addBoundaryTimeObserver(forTimes: [NSValue(time: event.1.cmTime + duration.cmTime)], queue: nil) {
                             Task { @MainActor in
                                 context.removeElement(event.0)
@@ -295,6 +322,7 @@ public struct Video: GroupElement, Loadable {
             let event: (any Element, Duration)
         }
     }
+
     
     public init(_ resource: String, withExtension fileExtension: String = "mp4", in bundle: Bundle? = nil, initialPosition: Position = (.zero, false), anchorOffset: SIMD3<Float> = .zero, @TimelineBuilder events: () -> ([Duration], [any Element])) {
         let bundle = bundle ?? Fable.defaultBundle

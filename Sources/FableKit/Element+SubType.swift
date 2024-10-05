@@ -42,8 +42,12 @@ public func WaitAndProceed(for duration: Duration) -> EventElement {
     }
 }
 
+public protocol MediaElement: Element {
+    var avPlayer: AVQueuePlayer { get }
+}
+
 @MainActor
-public struct Video: GroupElement, Loadable {
+public struct Video: GroupElement, Loadable, MediaElement {
     public let id: UUID
     public var contentData: ContentData = .timelined
     
@@ -70,16 +74,18 @@ public struct Video: GroupElement, Loadable {
     internal let entityElement: EntityElement
     
     public let times: [Duration]
-    public var lifetime: Lifetime = .indefinite(isOver: false)
+    public var lifetime: Lifetime = .element(count: 1)
     public let initialPosition: Position
     
     internal var videoEndSink: (any Cancellable)? = nil
     
-    private let avPlayer: AVQueuePlayer
+    public let avPlayer: AVQueuePlayer
 
     private let playbackRate: Float
     
     internal let avPlayerItem: AVPlayerItem
+
+    public let isVisible: Bool
     
     nonisolated public var description: String {
         zip(elements, times).map {
@@ -87,7 +93,7 @@ public struct Video: GroupElement, Loadable {
         }.joined(separator: "\n")
     }
     
-    public init(_ url: URL, initialPosition: Position = (.zero, false), anchorOffset: SIMD3<Float> = .zero, playbackRate: Float = 1.0, @TimelineBuilder events: () -> ([Duration], [any Element]) ) {
+    public init(_ url: URL, initialPosition: Position = (.zero, false), anchorOffset: SIMD3<Float> = .zero, playbackRate: Float = 1.0, isVisible: Bool = true, @TimelineBuilder events: () -> ([Duration], [any Element]) ) {
         let videoPlayerItem = AVPlayerItem(url: url)
         self.avPlayerItem = videoPlayerItem
         self.initialPosition = initialPosition
@@ -100,6 +106,7 @@ public struct Video: GroupElement, Loadable {
         self.avPlayer = player
 
         self.playbackRate = playbackRate
+        self.isVisible = isVisible
         
         let videoEntity = Entity()
         
@@ -134,6 +141,7 @@ public struct Video: GroupElement, Loadable {
         self.initialPosition = previous.initialPosition
         self.anchorOffset = previous.anchorOffset
         self.playbackRate = previous.playbackRate
+        self.isVisible = previous.isVisible
         
         let player = AVQueuePlayer()
         
@@ -168,6 +176,7 @@ public struct Video: GroupElement, Loadable {
         
         self.entityElement = entityElement
         let playbackRate = self.playbackRate
+        let isVisible = self.isVisible
         
         self.onRender = { context in
             func entityElementFadeInOutSetup(element: any Element, eventTime: CMTime, elementDuration: Duration) {
@@ -194,7 +203,9 @@ public struct Video: GroupElement, Loadable {
             player.play()
             player.rate = playbackRate
             
-            context.addElement(entityElement)
+            if isVisible {
+                context.addElement(entityElement)
+            }
             
             let events = zip(newElements, times)
             let initialEvents = events.filter { $0.1.cmTime.value <= 1}
@@ -312,9 +323,9 @@ public struct Video: GroupElement, Loadable {
         }
         
         self.onDisappear = { context in
-            context.avPlayer.pause()
-            context.avPlayer.removeAllItems()
-            context.clearBoundaryTimeObserver()
+            // context.avPlayer.pause()
+            // context.avPlayer.removeAllItems()
+            // context.clearBoundaryTimeObserver()
         }
         
         self.isLoaded = true
@@ -331,12 +342,12 @@ public struct Video: GroupElement, Loadable {
     }
 
     
-    public init(_ resource: String, withExtension fileExtension: String = "mp4", in bundle: Bundle? = nil, initialPosition: Position = (.zero, false), anchorOffset: SIMD3<Float> = .zero, playbackRate: Float = 1.0, @TimelineBuilder events: () -> ([Duration], [any Element])) {
+    public init(_ resource: String, withExtension fileExtension: String = "mp4", in bundle: Bundle? = nil, initialPosition: Position = (.zero, false), anchorOffset: SIMD3<Float> = .zero, playbackRate: Float = 1.0, isVisible: Bool = true, @TimelineBuilder events: () -> ([Duration], [any Element])) {
         let bundle = bundle ?? Fable.defaultBundle
         guard let url = bundle.url(forResource: resource, withExtension: fileExtension) else {
             fatalError("File is not found in the bundle \"\(bundle.bundlePath)\"")
         }
-        self.init(url, initialPosition: initialPosition, anchorOffset: anchorOffset, playbackRate: playbackRate, events: events)
+        self.init(url, initialPosition: initialPosition, anchorOffset: anchorOffset, playbackRate: playbackRate, isVisible: isVisible, events: events)
     }
     
     internal func play() {

@@ -76,6 +76,8 @@ public struct Video: GroupElement, Loadable {
     internal var videoEndSink: (any Cancellable)? = nil
     
     private let avPlayer: AVQueuePlayer
+
+    private let playbackRate: Float
     
     internal let avPlayerItem: AVPlayerItem
     
@@ -85,7 +87,7 @@ public struct Video: GroupElement, Loadable {
         }.joined(separator: "\n")
     }
     
-    public init(_ url: URL, initialPosition: Position = (.zero, false), anchorOffset: SIMD3<Float> = .zero, @TimelineBuilder events: () -> ([Duration], [any Element]) ) {
+    public init(_ url: URL, initialPosition: Position = (.zero, false), anchorOffset: SIMD3<Float> = .zero, playbackRate: Float = 1.0, @TimelineBuilder events: () -> ([Duration], [any Element]) ) {
         let videoPlayerItem = AVPlayerItem(url: url)
         self.avPlayerItem = videoPlayerItem
         self.initialPosition = initialPosition
@@ -96,6 +98,8 @@ public struct Video: GroupElement, Loadable {
         
         let player = AVQueuePlayer()
         self.avPlayer = player
+
+        self.playbackRate = playbackRate
         
         let videoEntity = Entity()
         
@@ -129,6 +133,7 @@ public struct Video: GroupElement, Loadable {
         self.lifetime = previous.lifetime
         self.initialPosition = previous.initialPosition
         self.anchorOffset = previous.anchorOffset
+        self.playbackRate = previous.playbackRate
         
         let player = AVQueuePlayer()
         
@@ -162,6 +167,7 @@ public struct Video: GroupElement, Loadable {
         }
         
         self.entityElement = entityElement
+        let playbackRate = self.playbackRate
         
         self.onRender = { context in
             func entityElementFadeInOutSetup(element: any Element, eventTime: CMTime, elementDuration: Duration) {
@@ -186,6 +192,7 @@ public struct Video: GroupElement, Loadable {
                 }
             }
             player.play()
+            player.rate = playbackRate
             
             context.addElement(entityElement)
             
@@ -324,12 +331,12 @@ public struct Video: GroupElement, Loadable {
     }
 
     
-    public init(_ resource: String, withExtension fileExtension: String = "mp4", in bundle: Bundle? = nil, initialPosition: Position = (.zero, false), anchorOffset: SIMD3<Float> = .zero, @TimelineBuilder events: () -> ([Duration], [any Element])) {
+    public init(_ resource: String, withExtension fileExtension: String = "mp4", in bundle: Bundle? = nil, initialPosition: Position = (.zero, false), anchorOffset: SIMD3<Float> = .zero, playbackRate: Float = 1.0, @TimelineBuilder events: () -> ([Duration], [any Element])) {
         let bundle = bundle ?? Fable.defaultBundle
         guard let url = bundle.url(forResource: resource, withExtension: fileExtension) else {
             fatalError("File is not found in the bundle \"\(bundle.bundlePath)\"")
         }
-        self.init(url, initialPosition: initialPosition, anchorOffset: anchorOffset, events: events)
+        self.init(url, initialPosition: initialPosition, anchorOffset: anchorOffset, playbackRate: playbackRate, events: events)
     }
     
     internal func play() {

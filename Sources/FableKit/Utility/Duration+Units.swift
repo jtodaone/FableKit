@@ -40,4 +40,8 @@ public extension Duration {
     public func frames(_ frames: Double, fps: Int = 60) -> Duration {
         self + .frames(frames, fps: fps)
     }
+
+    public func milliseconds(_ milliseconds: Double) -> Duration {
+        self + .milliseconds(milliseconds)
+    }
 }

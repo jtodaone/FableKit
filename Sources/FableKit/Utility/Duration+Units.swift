@@ -1,6 +1,6 @@
 import Foundation
 
-extension Duration {
+public extension Duration {
     static func hours<T: BinaryInteger>(_ hours: T) -> Duration {
         return .minutes(hours * T(60))
     }

@@ -304,7 +304,7 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
             try? await self.session.run([self.worldInfo])
             do { self.fable = try await self.fable.preloaded(context: self) }
             catch {
-                fatalError("Fable Content cannot be Loaded.")
+                fatalError("Fable Content cannot be Loaded. \(error)")
             }
             
             try? await self.clock.sleep(for: .seconds(1))

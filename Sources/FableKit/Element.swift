@@ -64,7 +64,7 @@ public struct ConcurrentElement: GroupElement {
     }
 }
 
-@MainActor
+@MainActor @available(*, deprecated, message: "use Video instead")
 public struct TimelinedElement: GroupElement {
     nonisolated public var description: String {
         zip(elements, times).map {

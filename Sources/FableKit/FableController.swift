@@ -113,7 +113,8 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
                 entityGarbageBag = entityGarbageBag.map { garbage in
                     guard !garbage.hasBeenCollected else { return garbage }
                     if let entity = realityViewContent.entities.first(where: { $0.id == garbage.id }) {
-                        realityViewContent.remove(entity)
+                        realityViewContent.entities.removeAll { $0.id == entity.id }
+                        // realityViewContent.remove(entity)
                         return (garbage.id, true)
                     }
                     return (garbage.id, false)
@@ -336,7 +337,13 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
         addElement(currentElement)
         
         for element in nonEntitiesToRemove {
-            if let onDisappear = element.onDisappear { onDisappear(self) }
+            if let onDisappear = element.onDisappear {
+                onDisappear(self)
+                if let media = element as? (any MediaElement) {
+                    media.avPlayer.pause()
+                    media.avPlayer.removeAllItems()
+                }
+            }
         }
         
         activeElements = activeElements.filter { element in

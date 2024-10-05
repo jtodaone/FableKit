@@ -194,10 +194,10 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
             
             for entry in self.entitiesToAdd {
                 let entityElement = entry.0
-                guard entityElement.entity != nil else { continue }
+                guard let entity = entityElement.entity else { continue }
 
                 if entityElement.isInteractable {
-                    entityElement.entity!.enableGesture()
+                    entity.enableGesture()
                 }
                 
                 switch entityElement.initialPosition.anchor {
@@ -205,9 +205,9 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
                     let headEntity = Entity()
                     headEntity.setPosition(self.currentHeadPosition, relativeTo: nil)
                     headEntity.setOrientation(simd_quatf(self.currentHeadRotation), relativeTo: nil)
-                    entityElement.entity!.move(to: Transform(translation: entityElement.initialPosition.position), relativeTo: headEntity)
+                    entity.move(to: Transform(translation: entityElement.initialPosition.position), relativeTo: headEntity)
                 case .world:
-                    entityElement.entity!.setPosition(entityElement.initialPosition.position, relativeTo: nil)
+                    entity.setPosition(entityElement.initialPosition.position, relativeTo: nil)
                 case .relativeTo(let anchorEntity):
                     let uuid: UUID = anchorEntity.id;
                     
@@ -217,27 +217,27 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
                         let parentID = entityElement.parentID,
                         let parent = self.activeElements.first(where: { $0.id == parentID })
                     else {
-                        entityElement.entity!.setPosition(entityElement.initialPosition.position, relativeTo: nil)
+                        entity.setPosition(entityElement.initialPosition.position, relativeTo: nil)
                         break    
                     }
 
                     // if let entityParent = parent as? EntityElement, let parentEntity = entityParent.entity {
-                    //     entityElement.entity!.setPosition(entityElement.initialPosition.position, relativeTo: parentEntity)
+                    //     entity.setPosition(entityElement.initialPosition.position, relativeTo: parentEntity)
                     if let videoParent = parent as? Video, let parentEntity = videoParent.entityElement.entity {
                         let realPosition = entityElement.initialPosition.position + videoParent.anchorOffset
-                        entityElement.entity!.setPosition(realPosition, relativeTo: parentEntity)
+                        entity.setPosition(realPosition, relativeTo: parentEntity)
                     }
                 }
                 
                 if entityElement.initialRotation.lookAtHead {
-                    entityElement.entity!.look(at: self.currentHeadPosition, from: entityElement.initialPosition.position + self.currentHeadPosition, relativeTo: nil)
-                    entityElement.entity!.setOrientation(simd_quatf(angle: Float.pi, axis: SIMD3<Float>(0, 1, 0)), relativeTo: entityElement.entity!)
-                    entityElement.entity!.setOrientation(simd_quatf(Rotation3D(eulerAngles: entityElement.initialRotation.0)), relativeTo: entityElement.entity!)
+                    entity.look(at: self.currentHeadPosition, from: entityElement.initialPosition.position + self.currentHeadPosition, relativeTo: nil)
+                    entity.setOrientation(simd_quatf(angle: Float.pi, axis: SIMD3<Float>(0, 1, 0)), relativeTo: entity)
+                    entity.setOrientation(simd_quatf(Rotation3D(eulerAngles: entityElement.initialRotation.0)), relativeTo: entity)
                 } else {
-                    entityElement.entity!.setOrientation(simd_quatf(Rotation3D(eulerAngles: entityElement.initialRotation.0)), relativeTo: entityElement.entity!)
+                    entity.setOrientation(simd_quatf(Rotation3D(eulerAngles: entityElement.initialRotation.0)), relativeTo: entity)
                 }
                 
-                entityElement.entity!.setScale(entityElement.initialScale, relativeTo: entityElement.entity!)
+                entity.setScale(entityElement.initialScale, relativeTo: entity)
                 
                 if case .time(let duration, _) = entityElement.lifetime, !entry.ignoreLifetime {
                     if let fadeInOutDuration = entityElement.fadeInOutDuration {
@@ -258,7 +258,7 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
                     }
                 }
                 
-                content.add(entityElement.entity!)
+                content.add(entity)
                 if let fadeInAnimation = entityElement.fadeInOutAnimation.in {
                     entityElement.entity?.playAnimation(fadeInAnimation, transitionDuration: 0, startsPaused: false)
                 }
@@ -277,7 +277,9 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
             for entityElement in self.entitiesToRemove {
                 guard entityElement.entity != nil else { continue }
                 if let onDisappear = entityElement.onDisappear { onDisappear(self) }
-                content.remove(entityElement.entity!)
+                if let entity = entityElement.entity {
+                    content.remove(entity)
+                }
                 
                 Task {
                     self.activeElements.removeAll { $0.id == entityElement.id }
@@ -299,10 +301,13 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
 //        }))
         .preferredSurroundingsEffect(SurroundingsEffect.dim(intensity: dimming))
         .task {
-            try! await self.session.run([self.worldInfo])
-            self.fable = try! await self.fable.preloaded(context: self)
+            try? await self.session.run([self.worldInfo])
+            do { self.fable = try await self.fable.preloaded(context: self) }
+            catch {
+                fatalError("Fable Content cannot be Loaded.")
+            }
             
-            try! await self.clock.sleep(for: .seconds(1))
+            try? await self.clock.sleep(for: .seconds(1))
             self.next()
         }
     }

@@ -248,7 +248,7 @@ public struct EntityElement: Element, Loadable, ParentReferencingElement {
         initialRotation: Rotation = (EulerAngles(), false),
         lifetime: Lifetime = .element(count: 1),
         initialScale: SIMD3<Float> = .one,
-        isInteractable: Bool = true,
+        isInteractable: Bool = false,
         fadeInOutDuration: (in: Duration, out: Duration)? = nil,
         onRender: @escaping RenderEventHandler = { _ in },
         onDisappear: @escaping RenderEventHandler = { _ in }
@@ -280,7 +280,7 @@ public struct EntityElement: Element, Loadable, ParentReferencingElement {
         initialPosition: Position = (.zero, false),
         initialRotation: Rotation = (EulerAngles(), false),
         initialScale: SIMD3<Float> = .one,
-        isInteractable: Bool = true,
+        isInteractable: Bool = false,
         lifetime: Lifetime = .element(count: 1),
         fadeInOutDuration: (in: Duration, out: Duration)? = nil,
         onRender: @escaping RenderEventHandler = { _ in },

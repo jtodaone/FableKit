@@ -345,7 +345,7 @@ public struct Video: GroupElement, Loadable, MediaElement {
     public init(_ resource: String, withExtension fileExtension: String = "mp4", in bundle: Bundle? = nil, initialPosition: Position = (.zero, false), anchorOffset: SIMD3<Float> = .zero, playbackRate: Float = 1.0, isVisible: Bool = true, @TimelineBuilder events: () -> ([Duration], [any Element])) {
         let bundle = bundle ?? Fable.defaultBundle
         guard let url = bundle.url(forResource: resource, withExtension: fileExtension) else {
-            fatalError("File is not found in the bundle \"\(bundle.bundlePath)\"")
+            fatalError("File \(resource) is not found in the bundle \"\(bundle.bundlePath)\"")
         }
         self.init(url, initialPosition: initialPosition, anchorOffset: anchorOffset, playbackRate: playbackRate, isVisible: isVisible, events: events)
     }

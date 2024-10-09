@@ -48,11 +48,19 @@ public struct ConcurrentElement: GroupElement {
     public var elements: [any Element]
     public var onRender: RenderEventHandler? = nil
     public var onDisappear: RenderEventHandler? = nil
+
+    // public var parentID: UUID?
     
     private init(from previous: ConcurrentElement, with newElements: [any Element]) {
         self.id = previous.id
         self.contentData = previous.contentData
-        self.elements = newElements
+        self.elements = newElements.map {
+            if let parentReferencing = $0 as? (any ParentReferencingElement) {
+                return parentReferencing.withParent(previous.id)
+            } else {
+                return $0
+            }
+        }
         self.onRender = previous.onRender
         self.onDisappear = previous.onDisappear
         self._lifetime = previous._lifetime
@@ -62,6 +70,12 @@ public struct ConcurrentElement: GroupElement {
     func withNewElements(_ newElements: [any Element]) -> Self {
         return Self(from: self, with: newElements)
     }
+
+    // public func withParent(_ parentID: UUID) -> Self {
+    //     var copy = self
+    //     copy.parentID = parentID
+    //     return copy
+    // }
 }
 
 @MainActor @available(*, deprecated, message: "use Video instead")
@@ -169,23 +183,23 @@ public struct ViewElement: Element, @unchecked Sendable, ParentReferencingElemen
     }
 }
 
-@MainActor
-public struct AnchorElement: Element {
-    public var description: String = "<Anchor>"
-    public var id: UUID = UUID()
-    public var lifetime: Lifetime = .indefinite(isOver: false)
-    public var onRender: RenderEventHandler? = nil
-    public var onDisappear: RenderEventHandler? = nil
-    public var contentData: ContentData = .other
-
-    public var anchorEntity: AnchorEntity
-
-    init(position: SIMD3<Float> = .zero, rotation: EulerAngles = .init()) {
-        anchorEntity = AnchorEntity()
-        anchorEntity.setPosition(position, relativeTo: nil)
-        anchorEntity.setOrientation(simd_quatf(Rotation3D(eulerAngles: rotation)), relativeTo: nil)
-    }
-}
+// @MainActor
+// public struct AnchorElement: Element {
+//     public var description: String = "<Anchor>"
+//     public var id: UUID = UUID()
+//     public var lifetime: Lifetime = .indefinite(isOver: false)
+//     public var onRender: RenderEventHandler? = nil
+//     public var onDisappear: RenderEventHandler? = nil
+//     public var contentData: ContentData = .other
+//
+//     public var anchorEntity: AnchorEntity
+//
+//     init(position: SIMD3<Float> = .zero, rotation: EulerAngles = .init()) {
+//         anchorEntity = AnchorEntity()
+//         anchorEntity.setPosition(position, relativeTo: nil)
+//         anchorEntity.setOrientation(simd_quatf(Rotation3D(eulerAngles: rotation)), relativeTo: nil)
+//     }
+// }
 
 @MainActor
 public struct EntityElement: Element, Loadable, ParentReferencingElement {

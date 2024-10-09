@@ -55,13 +55,13 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
     
     let clock = ContinuousClock()
     
-    var boundaryTimeObservers: [Any] = []
+    // var boundaryTimeObservers: [Any] = []
     internal var cancelBag: [any Cancellable] = []
     
     var dimming: Double = 1
     
-    internal var avPlayer = AVQueuePlayer()
-    internal var avPlayerDidPlayToEndTimeNotificationCancellation: AnyCancellable? = nil
+    // internal var avPlayer = AVQueuePlayer()
+    // internal var avPlayerDidPlayToEndTimeNotificationCancellation: AnyCancellable? = nil
     
     var isPreloadComplete = false
     var isReady: Bool = false
@@ -92,9 +92,9 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
         
         self.skybox = createEmptySkybox()
 
-        garbageColleector = Task {
-            try await garbageCollect()
-        }
+        // garbageColleector = Task {
+        //     try await garbageCollect()
+        // }
     }
     
     deinit {
@@ -114,7 +114,6 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
                     guard !garbage.hasBeenCollected else { return garbage }
                     if let entity = realityViewContent.entities.first(where: { $0.id == garbage.id }) {
                         realityViewContent.entities.removeAll { $0.id == entity.id }
-                        // realityViewContent.remove(entity)
                         return (garbage.id, true)
                     }
                     return (garbage.id, false)
@@ -168,16 +167,19 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
                             let parentID = floatingView.parentID,
                             let parent = self.activeElements.first(where: { $0.id == parentID })
                         else {
+                            print("parent not found")
                             attachment.setPosition(floatingView.initialPosition.position, relativeTo: nil)
                             break
                         }
 
-                        // if let entityParent = parent as? EntityElement, let entity = entityParent.entity {
-                        //     let realPosition = floatingView.initialPosition.position - entityParent.anchorOffset
-                        //     attachment.setPosition(floatingView.initialPosition.position, relativeTo: entity)
-                        if let videoParent = parent as? Video, let entity = videoParent.entityElement.entity {
-                            let realPosition = floatingView.initialPosition.position + videoParent.anchorOffset
-                            attachment.setPosition(realPosition, relativeTo: entity)
+                        if let videoParent = parent as? Media, let entity = videoParent.entityElement.entity {
+                            let realPosition = floatingView.initialPosition.position + videoParent.anchorOffset + entity.position
+                            attachment.setPosition(realPosition, relativeTo: nil)
+                            print(entity.position)
+                        } else {
+                            print(parent)
+                            print(parent as? Media)
+                            print((parent as? Media)?.entityElement.entity)
                         }
                     }
                     
@@ -191,6 +193,10 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
                     
                     content.add(attachment)
                 }
+            }
+
+            Task {
+                self._floatingViewAttachmentsToAdd.removeAll()
             }
             
             for entry in self.entitiesToAdd {
@@ -222,11 +228,14 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
                         break    
                     }
 
-                    // if let entityParent = parent as? EntityElement, let parentEntity = entityParent.entity {
-                    //     entity.setPosition(entityElement.initialPosition.position, relativeTo: parentEntity)
-                    if let videoParent = parent as? Video, let parentEntity = videoParent.entityElement.entity {
+                    if let videoParent = parent as? Media, let parentEntity = videoParent.entityElement.entity {
                         let realPosition = entityElement.initialPosition.position + videoParent.anchorOffset
+                        print(parentEntity.position)
                         entity.setPosition(realPosition, relativeTo: parentEntity)
+                    } else {
+                        print(parent)
+                        print(parent as? Media)
+                        print((parent as? Media)?.entityElement.entity)
                     }
                 }
                 
@@ -297,9 +306,11 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
             self.floatingViewAttachments
         }
         .installGestures()
-//        .gesture(SpatialTapGesture().targetedToEntity(skybox).onEnded({ _ in
-//            self.next()
-//        }))
+        .onKeyPress(.pageDown) {
+            self.next()
+            print("pagedown key pressed")
+            return .handled
+        }
         .preferredSurroundingsEffect(SurroundingsEffect.dim(intensity: dimming))
         .task {
             try? await self.session.run([self.worldInfo])
@@ -339,7 +350,7 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
         for element in nonEntitiesToRemove {
             if let onDisappear = element.onDisappear {
                 onDisappear(self)
-                if let media = element as? (any MediaElement) {
+                if let media = element as? Media {
                     media.avPlayer.pause()
                     media.avPlayer.removeAllItems()
                 }
@@ -463,38 +474,20 @@ public final class FableController: @unchecked Sendable, SignalReceiver {
         timedQueue.removeValue(forKey: id)
     }
     
-//    func addBoundaryTimeObserver(_ element: any Element, at time: CMTime) {
-//        boundaryTimeObservers.append(avPlayer.addBoundaryTimeObserver(forTimes: [NSValue(time: time)], queue: nil) {
-//            Task { @MainActor in
-//                print("add from boundary observer")
-//                self.addElement(element, ignoreLifetime: true)
-//            }
-//        })
-//        
-//        if case .time(let duration, _) = element.lifetime {
-//            boundaryTimeObservers.append(avPlayer.addBoundaryTimeObserver(forTimes: [NSValue(time: time + duration.cmTime)], queue: nil) {
-//                Task { @MainActor in
-//                    print("from boundary observer")
-//                    self.removeElement(element)
-//                }
-//            })
-//        }
-//    }
-    
-    func clearBoundaryTimeObserver() {
-        boundaryTimeObservers.forEach { avPlayer.removeTimeObserver($0) }
-    }
+    // func clearBoundaryTimeObserver() {
+    //     boundaryTimeObservers.forEach { avPlayer.removeTimeObserver($0) }
+    // }
     
     public func onReceive(_ message: Message) {
         switch message {
         case .proceed:
             Task { await self.next() }
         case .pauseVideo:
-            for video in activeElements.compactMap({ $0 as? Video }) {
+            for video in activeElements.compactMap({ $0 as? Media }) {
                 Task { await video.pause() }
             }
         case .resumeVideo:
-            for video in activeElements.compactMap({ $0 as? Video }) {
+            for video in activeElements.compactMap({ $0 as? Media }) {
                 Task { await video.play() }
             }
         }

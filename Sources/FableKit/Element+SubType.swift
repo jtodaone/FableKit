@@ -42,12 +42,14 @@ public func WaitAndProceed(for duration: Duration) -> EventElement {
     }
 }
 
-public protocol MediaElement: Element {
-    var avPlayer: AVQueuePlayer { get }
+public func Proceed() -> EventElement {
+    EventElement(description: "<Proceed>") { context in
+        context.next()
+    }
 }
 
 @MainActor
-public struct Video: GroupElement, Loadable, MediaElement {
+public struct Media: GroupElement, Loadable {
     public let id: UUID
     public var contentData: ContentData = .timelined
     
@@ -77,7 +79,7 @@ public struct Video: GroupElement, Loadable, MediaElement {
     public var lifetime: Lifetime = .element(count: 1)
     public let initialPosition: Position
     
-    internal var videoEndSink: (any Cancellable)? = nil
+    internal var mediaEndSink: (any Cancellable)? = nil
     
     public let avPlayer: AVQueuePlayer
 
@@ -85,7 +87,9 @@ public struct Video: GroupElement, Loadable, MediaElement {
     
     internal let avPlayerItem: AVPlayerItem
 
-    public let isVisible: Bool
+    public let isVisible: Bool?
+
+    public let proceedOnEnd: Bool
     
     nonisolated public var description: String {
         zip(elements, times).map {
@@ -93,7 +97,15 @@ public struct Video: GroupElement, Loadable, MediaElement {
         }.joined(separator: "\n")
     }
     
-    public init(_ url: URL, initialPosition: Position = (.zero, false), anchorOffset: SIMD3<Float> = .zero, playbackRate: Float = 1.0, isVisible: Bool = true, @TimelineBuilder events: () -> ([Duration], [any Element]) ) {
+    public init(
+        _ url: URL,
+        initialPosition: Position = (.zero, false),
+        anchorOffset: SIMD3<Float> = .zero,
+        playbackRate: Float = 1.0,
+        isVisible: Bool? = nil,
+        proceedOnEnd: Bool = false,
+        @TimelineBuilder events: () -> ([Duration], [any Element])
+    ) {
         let videoPlayerItem = AVPlayerItem(url: url)
         self.avPlayerItem = videoPlayerItem
         self.initialPosition = initialPosition
@@ -113,24 +125,25 @@ public struct Video: GroupElement, Loadable, MediaElement {
         let id = UUID()
         self.id = id
         
-        let entityElement = EntityElement(entity: videoEntity, description: "<Video>", initialPosition: initialPosition) { context in
-            fatalError("Video is not loaded")
+        let entityElement = EntityElement(entity: videoEntity, description: "<Media>", initialPosition: initialPosition) { context in
+            fatalError("Media file is not loaded")
         }
         
         self.entityElement = entityElement
         
         self.onRender = { context in
-            fatalError("Video is not loaded")
+            fatalError("Media file is not loaded")
         }
 
         self.anchorOffset = anchorOffset
+        self.proceedOnEnd = proceedOnEnd
     }
     
     func withNewElements(_ newElements: [any Element]) -> Self {
         return Self(from: self, with: newElements)
     }
     
-    private init(from previous: Video, with newElements: [any Element]) {
+    private init(from previous: Media, with newElements: [any Element]) {
         let id = previous.id
         self.id = id
         self.contentData = previous.contentData
@@ -141,37 +154,47 @@ public struct Video: GroupElement, Loadable, MediaElement {
         self.initialPosition = previous.initialPosition
         self.anchorOffset = previous.anchorOffset
         self.playbackRate = previous.playbackRate
-        self.isVisible = previous.isVisible
+        self.proceedOnEnd = previous.proceedOnEnd
         
         let player = AVQueuePlayer()
-        
+        let proceedOnEnd = previous.proceedOnEnd
         self.avPlayer = player
         
         let playerItem = previous.avPlayerItem.copy() as! AVPlayerItem
         self.avPlayerItem = playerItem
+
+        if previous.isVisible == nil {
+            self.isVisible = playerItem.tracks.contains { $0.assetTrack?.mediaType == .video }
+        } else {
+            self.isVisible = previous.isVisible
+        }
         
         let videoEntity = Entity()
-        var videoComponent = VideoPlayerComponent(avPlayer: avPlayer)
         
-        videoComponent.desiredViewingMode = .stereo
-        videoComponent.desiredImmersiveViewingMode = .full
+        if isVisible ?? false {
+            var videoComponent = VideoPlayerComponent(avPlayer: avPlayer)
+            videoComponent.desiredViewingMode = .stereo
+            videoComponent.desiredImmersiveViewingMode = .full
         
-        videoEntity.components.set(videoComponent)
+            videoEntity.components.set(videoComponent)
+        }
         
         avPlayer.removeAllItems()
         avPlayer.insert(self.avPlayerItem, after: nil)
         
-        let entityElement = EntityElement(entity: videoEntity, description: "<Video>", initialPosition: initialPosition, initialRotation: (.init(), lookAtHead: true)) { context in
+        let entityElement = EntityElement(entity: videoEntity, description: "<MediaEntity>", initialPosition: initialPosition, initialRotation: (.init(), lookAtHead: true)) { context in
             context.cancelBag.append(
                 NotificationCenter.default.publisher(for: AVPlayerItem.didPlayToEndTimeNotification, object: playerItem).sink { _ in
-                    print("video ended")
                     context.removeElement(id: id)
+                    if proceedOnEnd {
+                        context.next()
+                    }
                 }
             )
         } onDisappear: { context in
-            context.avPlayer.pause()
-            context.avPlayer.removeAllItems()
-            context.clearBoundaryTimeObserver()
+            // context.avPlayer.pause()
+            // context.avPlayer.removeAllItems()
+            // context.clearBoundaryTimeObserver()
         }
         
         self.entityElement = entityElement
@@ -182,19 +205,14 @@ public struct Video: GroupElement, Loadable, MediaElement {
             func entityElementFadeInOutSetup(element: any Element, eventTime: CMTime, elementDuration: Duration) {
                 if let entityElement = element as? EntityElement, let fadeInOutDuration = entityElement.fadeInOutDuration {
                     let fadeOutTime = eventTime + elementDuration.cmTime - fadeInOutDuration.out.cmTime
-                    print("setting boundary time observer for fadeout at: \(fadeOutTime)")
                     player.addBoundaryTimeObserver(forTimes: [NSValue(time: fadeOutTime)], queue: nil) {
-                        print("fadeout observer triggered")
                         Task { @MainActor in
                             guard let fadeOutAnimationResource = entityElement.fadeInOutAnimation.out else {
-                                print("no fadeout animation detected")
                                 return
                             }
                             guard let entity = entityElement.entity else {
-                                print("no entity detected")
                                 return
                             }
-                            // entity.components[OpacityComponent.self]?.opacity = 1
                             entity.playAnimation(fadeOutAnimationResource, transitionDuration: 0, startsPaused: false)
                         }
                     }
@@ -203,9 +221,9 @@ public struct Video: GroupElement, Loadable, MediaElement {
             player.play()
             player.rate = playbackRate
             
-            if isVisible {
+            // if isVisible ?? false {
                 context.addElement(entityElement)
-            }
+            // }
             
             let events = zip(newElements, times)
             let initialEvents = events.filter { $0.1.cmTime.value <= 1}
@@ -323,9 +341,6 @@ public struct Video: GroupElement, Loadable, MediaElement {
         }
         
         self.onDisappear = { context in
-            // context.avPlayer.pause()
-            // context.avPlayer.removeAllItems()
-            // context.clearBoundaryTimeObserver()
         }
         
         self.isLoaded = true
@@ -342,12 +357,12 @@ public struct Video: GroupElement, Loadable, MediaElement {
     }
 
     
-    public init(_ resource: String, withExtension fileExtension: String = "mp4", in bundle: Bundle? = nil, initialPosition: Position = (.zero, false), anchorOffset: SIMD3<Float> = .zero, playbackRate: Float = 1.0, isVisible: Bool = true, @TimelineBuilder events: () -> ([Duration], [any Element])) {
+    public init(_ resource: String, withExtension fileExtension: String = "mp4", in bundle: Bundle? = nil, initialPosition: Position = (.zero, false), anchorOffset: SIMD3<Float> = .zero, playbackRate: Float = 1.0, isVisible: Bool = true, proceedOnEnd: Bool = false, @TimelineBuilder events: () -> ([Duration], [any Element])) {
         let bundle = bundle ?? Fable.defaultBundle
         guard let url = bundle.url(forResource: resource, withExtension: fileExtension) else {
             fatalError("File \(resource) is not found in the bundle \"\(bundle.bundlePath)\"")
         }
-        self.init(url, initialPosition: initialPosition, anchorOffset: anchorOffset, playbackRate: playbackRate, isVisible: isVisible, events: events)
+        self.init(url, initialPosition: initialPosition, anchorOffset: anchorOffset, playbackRate: playbackRate, isVisible: isVisible, proceedOnEnd: proceedOnEnd, events: events)
     }
     
     internal func play() {
